@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  postgres:
+    image: postgres:15.0
+    environment:
+      POSTGRES_DB: pdfsign
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432
+    networks:
+      - pdf-sign-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./keycloak/db/:/docker-entrypoint-initdb.d/
+
+networks:
+  pdf-sign-network:
+    driver: bridge
+volumes:
+  postgres_data:
+      driver: local
