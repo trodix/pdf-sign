@@ -58,3 +58,21 @@ If you want to learn more about building native executables, please consult http
 Easily start your Reactive RESTful Web Services
 
 [Related guide section...](https://quarkus.io/guides/getting-started-reactive#reactive-jax-rs-resources)
+
+## APP
+
+### Generate a root certificate
+
+```bash
+openssl req -sha256 -nodes -newkey rsa:2048 -keyout trodix.com.key -out trodix.com.csr
+```
+
+```bash
+openssl x509 -req -sha256 -days 365 -in trodix.com.csr -signkey trodix.com.key -out trodix.com.pem
+```
+
+### Generate a pk12 keystore from the root key/certificate
+
+```bash
+openssl pkcs12 -export -inkey trodix.com.key -in trodix.com.pem -out keyStore.p12
+```
