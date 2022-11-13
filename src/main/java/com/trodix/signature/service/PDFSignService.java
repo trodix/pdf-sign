@@ -64,7 +64,7 @@ public class PDFSignService {
             throws GeneralSecurityException, IOException {
 
         final String originalFilePath = signRequestModel.getOriginalFile().getPath();
-        final String originalFileName = FilenameUtils.getName(originalFilePath);
+        final String originalFileName = FilenameUtils.getName(signRequestModel.getOriginalFileName());
 
         try (final PdfReader reader = new PdfReader(originalFilePath);
                 final PdfReader reader2 = new PdfReader(originalFilePath);
