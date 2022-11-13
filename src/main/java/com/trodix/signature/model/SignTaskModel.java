@@ -1,6 +1,6 @@
 package com.trodix.signature.model;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import lombok.AllArgsConstructor;
@@ -22,8 +22,8 @@ public class SignTaskModel {
 
     private String recipientEmail;
 
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
 
 }

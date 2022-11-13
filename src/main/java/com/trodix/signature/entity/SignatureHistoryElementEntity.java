@@ -2,22 +2,21 @@
 
 package com.trodix.signature.entity;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
-import lombok.Data;
+import javax.persistence.ManyToOne;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
-@Data
-public class SignatureHistoryElementEntity {
-
-    @Id
-    @GeneratedValue
-    private Long id;
+@Getter
+@Setter
+public class SignatureHistoryElementEntity extends PanacheEntity {
 
     private String signedBy;
 
-    private LocalDate signedAt;
+    private LocalDateTime signedAt;
 
 }

@@ -1,20 +1,17 @@
 package com.trodix.signature.entity;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
 import org.hibernate.annotations.CreationTimestamp;
-import lombok.Data;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
-@Data
-public class SignTaskEntity {
-
-    @Id
-    @GeneratedValue
-    private Long id;
+@Getter
+@Setter
+public class SignTaskEntity extends PanacheEntity {
 
     private UUID documentId;
 
@@ -24,11 +21,17 @@ public class SignTaskEntity {
 
     private String recipientEmail;
 
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
     @CreationTimestamp
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
 
+    public static SignTaskEntity findByDocumentId(UUID documentId) {
+        return find("documentId", documentId).singleResult();
+    }
 
+    public static void deleteByDocumentId(UUID documentId) {
+        delete("documentId", documentId);
+    }
 
 }

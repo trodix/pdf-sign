@@ -18,12 +18,12 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
-import java.sql.Timestamp;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import javax.enterprise.context.ApplicationScoped;
+import javax.transaction.Transactional;
 import javax.ws.rs.NotFoundException;
 import org.apache.commons.io.FilenameUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -47,27 +47,19 @@ import com.trodix.signature.model.SignRequestModel;
 import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
-import com.trodix.signature.repository.SignatureRepository;
-import com.trodix.signature.repository.SignatureTaskRepository;
 import lombok.extern.slf4j.Slf4j;
 
 @ApplicationScoped
+@Transactional
 @Slf4j
 public class PDFSignService {
 
     @ConfigProperty(name = "app.signed-file-destination", defaultValue = "/tmp")
     private String signedFileDestination;
 
-    private final SignatureRepository signatureRepository;
-
-    private final SignatureTaskRepository signatureTaskRepository;
-
     private final SignatureMapper signatureMapper;
 
-    public PDFSignService(final SignatureRepository signatureRepository, final SignatureTaskRepository signatureTaskRepository,
-            final SignatureMapper signatureMapper) {
-        this.signatureRepository = signatureRepository;
-        this.signatureTaskRepository = signatureTaskRepository;
+    public PDFSignService(final SignatureMapper signatureMapper) {
         this.signatureMapper = signatureMapper;
     }
 
@@ -93,9 +85,8 @@ public class PDFSignService {
             final Rectangle signRect = new Rectangle(x, y, SIGN_RECT_SIZE_WIDTH, SIGN_RECT_SIZE_HEIGHT);
             log.info("Signature area defined to pageNumber={}, x={}, y={}", pageNumber, x, y);
 
-            final String signedDocumentName =
-                    FilenameUtils.getBaseName(originalFileName) + "-" + "signed-" + new Timestamp(System.currentTimeMillis()).getTime() + "."
-                            + FilenameUtils.getExtension(originalFileName);
+            final UUID signedDocumentId = UUID.randomUUID();
+            final String signedDocumentName = signedDocumentId.toString() + "." + FilenameUtils.getExtension(originalFileName);
             final String dest = signedFileDestination + "/" + signedDocumentName;
 
             final PdfSigner signer = new PdfSigner(reader2, new FileOutputStream(dest), new StampingProperties());
@@ -119,12 +110,11 @@ public class PDFSignService {
             verifySignatures(dest);
 
             final SignatureHistoryElementModel signatureHistoryElementModel =
-                    new SignatureHistoryElementModel(signRequestModel.getSenderEmail(), LocalDate.now());
+                    new SignatureHistoryElementModel(signRequestModel.getSenderEmail(), LocalDateTime.now());
 
             final SignedDocumentModel signedDocumentModel = new SignedDocumentModel();
-            signedDocumentModel.setDocumentId(UUID.randomUUID());
+            signedDocumentModel.setDocumentId(signedDocumentId);
             signedDocumentModel.setOriginalFileName(originalFileName);
-            signedDocumentModel.setSignedDocumentName(signedDocumentName);
             signedDocumentModel.addHistoryElement(signatureHistoryElementModel);
 
             registerSignedDocument(signedDocumentModel);
@@ -142,9 +132,9 @@ public class PDFSignService {
         final SignTaskEntity entity = this.signatureMapper.signTaskModelToSignTaskEntity(signTaskModel);
         entity.setDocumentId(documentId);
         entity.setOriginalFileName(signTaskModel.getOriginalFileName());
-        this.signatureTaskRepository.persistAndFlush(entity);
+        entity.persistAndFlush();
 
-        final SignTaskEntity result = this.signatureTaskRepository.findByDocumentId(entity.getDocumentId());
+        final SignTaskEntity result = SignTaskEntity.findByDocumentId(entity.getDocumentId());
 
         return this.signatureMapper.signTaskEntityToSignTaskModel(result);
     }
@@ -222,23 +212,24 @@ public class PDFSignService {
 
     public Path documentIdToPath(final UUID documentId) {
         final SignedDocumentModel signedDocumentModel = getSignDocumentModel(documentId);
-        final String signedDocumentName = signedDocumentModel.getSignedDocumentName();
+        final String ext = FilenameUtils.getExtension(signedDocumentModel.getOriginalFileName());
+        final String signedDocumentName = signedDocumentModel.getDocumentId().toString() + "." + ext;
         return Paths.get(signedFileDestination, signedDocumentName);
     }
 
     public SignedDocumentModel getSignDocumentModel(final UUID documentId) {
-        final SignedDocumentEntity entity = this.signatureRepository.findByDocumentId(documentId);
+        final SignedDocumentEntity entity = SignedDocumentEntity.findByDocumentId(documentId);
 
         return signatureMapper.signatureDocumentEntityToSignedDocumentModel(entity);
     }
 
     public void registerSignedDocument(final SignedDocumentModel signedDocumentModel) {
         final SignedDocumentEntity entity = signatureMapper.signedDocumentModelToSignedDocumentEntity(signedDocumentModel);
-        signatureRepository.persistAndFlush(entity);
+        entity.persistAndFlush();
     }
 
     public void deleteSignedDocument(final UUID documentId) {
-        signatureRepository.deleteByDocumentId(documentId);
+        SignedDocumentEntity.deleteByDocumentId(documentId);
     }
 
     public File getDocument(final UUID documentId) {
@@ -249,14 +240,14 @@ public class PDFSignService {
             document = path.toFile();
             return document;
         } catch (final RuntimeException e) {
-            log.info("Error while reading the document from id: {}", documentId);
+            log.error("Error while reading the document from id: {}", documentId);
         }
 
         throw new NotFoundException();
     }
 
     public List<SignedDocumentModel> getSignedDocuments() {
-        final List<SignedDocumentEntity> entities = signatureRepository.findAll().stream().toList();
+        final List<SignedDocumentEntity> entities = SignedDocumentEntity.listAll();
         return signatureMapper.signatureDocumentEntityListToSignedDocumentModelList(entities);
     }
 

@@ -1,6 +1,6 @@
 package com.trodix.signature.dto.response;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,8 +19,8 @@ public class SignTaskResponse {
 
     private String recipientEmail;
 
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
-    private LocalDate createdAt;
+    private LocalDateTime createdAt;
 
 }

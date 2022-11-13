@@ -16,8 +16,6 @@ public class SignedDocumentModel {
 
     private String originalFileName;
 
-    private String signedDocumentName;
-
     private List<SignatureHistoryElementModel> signatureHistory;
 
     public List<SignatureHistoryElementModel> addHistoryElement(SignatureHistoryElementModel signatureHistory) {

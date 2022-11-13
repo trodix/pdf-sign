@@ -14,8 +14,6 @@ public class SignedDocumentResponse {
 
     private String originalFileName;
 
-    private String signedDocumentName;
-
     private List<SignatureHistoryElementModel> signatureHistory;
 
 }

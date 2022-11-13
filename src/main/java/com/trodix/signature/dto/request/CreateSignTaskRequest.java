@@ -1,6 +1,6 @@
 package com.trodix.signature.dto.request;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import lombok.AllArgsConstructor;
@@ -22,6 +22,6 @@ public class CreateSignTaskRequest {
     private String recipientEmail;
 
     @RestForm
-    private LocalDate dueDate;
+    private LocalDateTime dueDate;
 
 }
