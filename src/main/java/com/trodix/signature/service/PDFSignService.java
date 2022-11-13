@@ -18,7 +18,10 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import javax.enterprise.context.ApplicationScoped;
@@ -37,9 +40,10 @@ import com.itextpdf.signatures.PdfSignatureAppearance;
 import com.itextpdf.signatures.PdfSigner;
 import com.itextpdf.signatures.PrivateKeySignature;
 import com.itextpdf.signatures.SignatureUtil;
-import com.trodix.signature.entity.SignatureDocumentEntity;
+import com.trodix.signature.entity.SignedDocumentEntity;
 import com.trodix.signature.mapper.SignatureMapper;
 import com.trodix.signature.model.SignRequestModel;
+import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
 import com.trodix.signature.repository.SignatureRepository;
 import lombok.extern.slf4j.Slf4j;
@@ -82,10 +86,10 @@ public class PDFSignService {
             final Rectangle signRect = new Rectangle(x, y, SIGN_RECT_SIZE_WIDTH, SIGN_RECT_SIZE_HEIGHT);
             log.info("Signature area defined to pageNumber={}, x={}, y={}", pageNumber, x, y);
 
-            final String signedFileName =
+            final String signedDocumentName =
                     FilenameUtils.getBaseName(originalFileName) + "-" + "signed-" + new Timestamp(System.currentTimeMillis()).getTime() + "."
                             + FilenameUtils.getExtension(originalFileName);
-            final String dest = signedFileDestination + "/" + signedFileName;
+            final String dest = signedFileDestination + "/" + signedDocumentName;
 
             final PdfSigner signer = new PdfSigner(reader2, new FileOutputStream(dest), new StampingProperties());
             final PdfSignatureAppearance appearance = signer.getSignatureAppearance();
@@ -104,9 +108,19 @@ public class PDFSignService {
             // Sign the document using the detached mode, CMS or CAdES equivalent.
             signer.signDetached(digest, pks, signRequestModel.getChain(), null, null, null, 0, signRequestModel.getSignatureType());
             log.info("New PDF file has been signed and exported to: " + dest);
+            
             verifySignatures(dest);
-            final SignedDocumentModel signedDocumentModel = new SignedDocumentModel(UUID.randomUUID(), originalFileName, signedFileName);
+
+            final SignatureHistoryElementModel signatureHistoryElementModel = new SignatureHistoryElementModel(signRequestModel.getSenderEmail(), new Date());
+
+            final SignedDocumentModel signedDocumentModel = new SignedDocumentModel();
+            signedDocumentModel.setDocumentId(UUID.randomUUID());
+            signedDocumentModel.setOriginalFileName(originalFileName);
+            signedDocumentModel.setSignedDocumentName(signedDocumentName);
+            signedDocumentModel.addHistoryElement(signatureHistoryElementModel);
+
             registerSignedDocument(signedDocumentModel);
+
             return signedDocumentModel;
         }
 
@@ -179,19 +193,19 @@ public class PDFSignService {
 
     public Path documentIdToPath(final UUID documentId) {
         final SignedDocumentModel signedDocumentModel = getSignDocumentModel(documentId);
-        final String signedDocumentName = signedDocumentModel.getSignedName();
+        final String signedDocumentName = signedDocumentModel.getSignedDocumentName();
         final Path path = Paths.get(signedFileDestination, signedDocumentName);
         return path;
     }
 
     public SignedDocumentModel getSignDocumentModel(final UUID documentId) {
-        final SignatureDocumentEntity entity = this.signatureRepository.findByDocumentId(documentId);
+        final SignedDocumentEntity entity = this.signatureRepository.findByDocumentId(documentId);
 
         return signatureMapper.signatureDocumentEntityToSignedDocumentModel(entity);
     }
 
     public void registerSignedDocument(final SignedDocumentModel signedDocumentModel) {
-        final SignatureDocumentEntity entity = signatureMapper.signedDocumentModelToSignatureDocumentEntity(signedDocumentModel);
+        final SignedDocumentEntity entity = signatureMapper.signedDocumentModelToSignedDocumentEntity(signedDocumentModel);
         signatureRepository.persistAndFlush(entity);
     }
 
@@ -199,7 +213,7 @@ public class PDFSignService {
         signatureRepository.deleteByDocumentId(documentId);
     }
 
-    public File getSignedDocument(final UUID documentId) {
+    public File getDocument(final UUID documentId) {
         File document;
 
         try {
@@ -214,7 +228,7 @@ public class PDFSignService {
     }
 
     public List<SignedDocumentModel> getSignedDocuments() {
-        List<SignatureDocumentEntity> entities = signatureRepository.findAll().stream().toList();
+        final List<SignedDocumentEntity> entities = signatureRepository.findAll().stream().toList();
         return signatureMapper.signatureDocumentEntityListToSignedDocumentModelList(entities);
     }
 

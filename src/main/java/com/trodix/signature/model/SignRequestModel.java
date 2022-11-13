@@ -18,6 +18,7 @@ public class SignRequestModel {
     private String originalFileName;
     private Certificate[] chain;
     private PrivateKey pk;
+    private String senderEmail;
     private String digestAlgorithm;
     private String provider;
     private CryptoStandard signatureType;

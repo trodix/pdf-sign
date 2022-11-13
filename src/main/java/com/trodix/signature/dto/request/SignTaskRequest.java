@@ -1,5 +1,6 @@
 package com.trodix.signature.dto.request;
 
+import java.util.Date;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import lombok.AllArgsConstructor;
@@ -9,33 +10,18 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SignRequest {
-
-    @RestForm
-    private String reason;
-
-    @RestForm
-    private String location;
-
-    @RestForm
-    private String p12Password;
-
-    @RestForm
-    private String senderEmail;
+public class SignTaskRequest {
 
     @RestForm
     private FileUpload document;
 
     @RestForm
-    private FileUpload cert;
+    private String senderEmail;
 
     @RestForm
-    private Integer signPageNumber;
+    private String recipientEmail;
 
     @RestForm
-    private Float signXPos;
-
-    @RestForm
-    private Float signYPos;
+    private Date dueDate;
 
 }

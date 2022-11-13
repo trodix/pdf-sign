@@ -1,6 +1,8 @@
+
+
 package com.trodix.signature.entity;
 
-import java.util.UUID;
+import java.util.Date;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -8,16 +10,14 @@ import lombok.Data;
 
 @Entity
 @Data
-public class SignatureDocumentEntity {
+public class SignatureHistoryElementEntity {
 
     @Id
     @GeneratedValue
     private Long id;
 
-    private UUID documentId;
+    private String signedBy;
 
-    private String originalName;
+    private Date signedAt;
 
-    private String signedName;
-    
 }

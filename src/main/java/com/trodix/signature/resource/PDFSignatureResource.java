@@ -21,7 +21,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import com.trodix.signature.dto.request.SignRequest;
-import com.trodix.signature.dto.response.SignResponse;
+import com.trodix.signature.dto.response.SignedDocumentResponse;
 import com.trodix.signature.mapper.SignatureMapper;
 import com.trodix.signature.model.SignRequestModel;
 import com.trodix.signature.model.SignedDocumentModel;
@@ -42,7 +42,7 @@ public class PDFSignatureResource {
     }
 
     @POST
-    public SignResponse signPDF(@BeanParam final SignRequest signRequest) throws IOException {
+    public SignedDocumentResponse signPDF(@BeanParam final SignRequest signRequest) throws IOException {
 
         final SignRequestModel signRequestModel = new SignRequestModel();
 
@@ -63,13 +63,14 @@ public class PDFSignatureResource {
             signRequestModel.setPk(pk);
             signRequestModel.setReason(signRequest.getReason());
             signRequestModel.setLocation(signRequest.getLocation());
+            signRequestModel.setSenderEmail(signRequest.getSenderEmail());
             signRequestModel.setSignPageNumber(signRequest.getSignPageNumber());
             signRequestModel.setSignXPos(signRequest.getSignXPos());
             signRequestModel.setSignYPos(signRequest.getSignYPos());
 
             final SignedDocumentModel signedDocumentModel = this.signService.signPdf(signRequestModel);
 
-            return signatureMapper.signedDocumentModelToSignResponse(signedDocumentModel);
+            return signatureMapper.signedDocumentModelToSignedDocumentResponse(signedDocumentModel);
         } catch (GeneralSecurityException | IOException e) {
             e.printStackTrace();
         }
@@ -77,14 +78,20 @@ public class PDFSignatureResource {
         throw new BadRequestException("Unable to sign the document with the provided data");
     }
 
+    // @POST
+    // @Path("/task")
+    // public SignResponse createSignTask(@BeanParam final SignTaskRequest signTaskRequest) throws IOException {
+
+    // }
+
     @GET
     @Path("/{documentId}")
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
-    public Response getSignedDocument(@PathParam(value = "documentId") final UUID documentId) {
+    public Response downloadSignedDocument(@PathParam(value = "documentId") final UUID documentId) {
 
-        final File document = this.signService.getSignedDocument(documentId);
+        final File document = this.signService.getDocument(documentId);
         final ResponseBuilder response = Response.ok(document);
-        response.header("Content-Disposition", "attachment;filename=" + document);
+        response.header("Content-Disposition", "attachment; filename=" + document);
 
         this.signService.deleteSignedDocument(documentId);
 
@@ -93,9 +100,21 @@ public class PDFSignatureResource {
 
     @GET
     @Path("/list")
-    public List<SignResponse> getSignedDocuments() {
+    public List<SignedDocumentResponse> getSignedDocuments() {
         final List<SignedDocumentModel> result = this.signService.getSignedDocuments();
         return signatureMapper.signedDocumentModelListToSignResponseList(result);
+    }
+
+    @GET
+    @Path("/preview/{documentId}")
+    @Produces("application/pdf")
+    public Response previewDocument(@PathParam(value = "documentId") final UUID documentId) {
+
+        final File document = this.signService.getDocument(documentId);
+        final ResponseBuilder response = Response.ok(document);
+        response.header("Content-Disposition", "inline; filename=" + document);
+
+        return response.build();
     }
 
 }
