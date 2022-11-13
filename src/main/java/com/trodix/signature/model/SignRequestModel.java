@@ -24,6 +24,9 @@ public class SignRequestModel {
     private String reason;
     private String location;
     private String keyAlias;
+    private Integer signPageNumber;
+    private Float signXPos;
+    private Float signYPos;
 
     public SignRequestModel() {
         this.signatureType = CryptoStandard.CMS;

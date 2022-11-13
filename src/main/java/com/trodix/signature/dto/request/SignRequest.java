@@ -28,4 +28,13 @@ public class SignRequest {
     @RestForm
     private FileUpload cert;
 
+    @RestForm
+    private Integer signPageNumber;
+
+    @RestForm
+    private Float signXPos;
+
+    @RestForm
+    private Float signYPos;
+
 }

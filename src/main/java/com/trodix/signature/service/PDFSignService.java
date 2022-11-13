@@ -73,13 +73,14 @@ public class PDFSignService {
             // Create the signature appearance
 
             // ** Get width and height of whole page
-            final int pageNumber = document.getNumberOfPages();
+            final int pageNumber = signRequestModel.getSignPageNumber() != null ? signRequestModel.getSignPageNumber() : document.getNumberOfPages();
             final Rectangle pdfLastPage = document.getLastPage().getPageSize();
             final float SIGN_RECT_SIZE_WIDTH = 200;
             final float SIGN_RECT_SIZE_HEIGHT = 100;
-            final float x = pdfLastPage.getRight() - SIGN_RECT_SIZE_WIDTH;
-            final float y = pdfLastPage.getBottom() + SIGN_RECT_SIZE_HEIGHT;
+            final float x = signRequestModel.getSignXPos() != null ? signRequestModel.getSignXPos() : pdfLastPage.getRight() - SIGN_RECT_SIZE_WIDTH;
+            final float y = signRequestModel.getSignYPos() != null ? signRequestModel.getSignYPos() : pdfLastPage.getBottom() + SIGN_RECT_SIZE_HEIGHT;
             final Rectangle signRect = new Rectangle(x, y, SIGN_RECT_SIZE_WIDTH, SIGN_RECT_SIZE_HEIGHT);
+            log.info("Signature area defined to pageNumber={}, x={}, y={}", pageNumber, x, y);
 
             final String signedFileName =
                     FilenameUtils.getBaseName(originalFileName) + "-" + "signed-" + new Timestamp(System.currentTimeMillis()).getTime() + "."

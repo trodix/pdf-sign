@@ -63,6 +63,9 @@ public class PDFSignatureResource {
             signRequestModel.setPk(pk);
             signRequestModel.setReason(signRequest.getReason());
             signRequestModel.setLocation(signRequest.getLocation());
+            signRequestModel.setSignPageNumber(signRequest.getSignPageNumber());
+            signRequestModel.setSignXPos(signRequest.getSignXPos());
+            signRequestModel.setSignYPos(signRequest.getSignYPos());
 
             final SignedDocumentModel signedDocumentModel = this.signService.signPdf(signRequestModel);
 
