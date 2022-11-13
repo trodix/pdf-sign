@@ -2,7 +2,7 @@
 
 package com.trodix.signature.entity;
 
-import java.util.Date;
+import java.time.LocalDate;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
@@ -18,6 +18,6 @@ public class SignatureHistoryElementEntity {
 
     private String signedBy;
 
-    private Date signedAt;
+    private LocalDate signedAt;
 
 }

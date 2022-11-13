@@ -1,6 +1,6 @@
 package com.trodix.signature.model;
 
-import java.util.Date;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -10,6 +10,6 @@ public class SignatureHistoryElementModel {
 
     private String signedBy;
 
-    private Date signedAt;
+    private LocalDate signedAt;
 
 }

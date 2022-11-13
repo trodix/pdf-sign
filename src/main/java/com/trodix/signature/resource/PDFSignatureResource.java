@@ -20,10 +20,14 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import com.arjuna.ats.jta.exceptions.NotImplementedException;
+import com.trodix.signature.dto.request.CreateSignTaskRequest;
 import com.trodix.signature.dto.request.SignRequest;
+import com.trodix.signature.dto.response.SignTaskResponse;
 import com.trodix.signature.dto.response.SignedDocumentResponse;
 import com.trodix.signature.mapper.SignatureMapper;
 import com.trodix.signature.model.SignRequestModel;
+import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignedDocumentModel;
 import com.trodix.signature.service.PDFSignService;
 import lombok.extern.slf4j.Slf4j;
@@ -78,11 +82,29 @@ public class PDFSignatureResource {
         throw new BadRequestException("Unable to sign the document with the provided data");
     }
 
-    // @POST
-    // @Path("/task")
-    // public SignResponse createSignTask(@BeanParam final SignTaskRequest signTaskRequest) throws IOException {
+    @POST
+    @Path("/task")
+    public SignTaskResponse createSignTask(@BeanParam final CreateSignTaskRequest signTaskRequest) throws IOException {
 
-    // }
+        final SignTaskModel signTaskModel = SignatureMapper.signTaskRequestToSignTaskModel(signTaskRequest);
+        signTaskModel.setOriginalFileName(signTaskRequest.getDocument().fileName());
+
+        final SignTaskModel result = this.signService.createSignTask(signTaskModel);
+
+        return this.signatureMapper.signTaskModelToCreateSignTaskResponse(result);
+    }
+
+    @GET
+    @Path("/task")
+    public List<SignTaskResponse> getSignTaskList(@BeanParam final CreateSignTaskRequest signTaskRequest) throws NotImplementedException {
+        throw new NotImplementedException();
+    }
+
+    @GET
+    @Path("/task/{documentId}")
+    public List<SignTaskResponse> getSignTask(final UUID documentId) throws NotImplementedException {
+        throw new NotImplementedException();
+    }
 
     @GET
     @Path("/{documentId}")

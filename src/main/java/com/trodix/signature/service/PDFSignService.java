@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
@@ -18,16 +19,15 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.sql.Timestamp;
-import java.util.ArrayList;
+import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import javax.enterprise.context.ApplicationScoped;
 import javax.ws.rs.NotFoundException;
 import org.apache.commons.io.FilenameUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
@@ -40,12 +40,15 @@ import com.itextpdf.signatures.PdfSignatureAppearance;
 import com.itextpdf.signatures.PdfSigner;
 import com.itextpdf.signatures.PrivateKeySignature;
 import com.itextpdf.signatures.SignatureUtil;
+import com.trodix.signature.entity.SignTaskEntity;
 import com.trodix.signature.entity.SignedDocumentEntity;
 import com.trodix.signature.mapper.SignatureMapper;
 import com.trodix.signature.model.SignRequestModel;
+import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
 import com.trodix.signature.repository.SignatureRepository;
+import com.trodix.signature.repository.SignatureTaskRepository;
 import lombok.extern.slf4j.Slf4j;
 
 @ApplicationScoped
@@ -57,10 +60,14 @@ public class PDFSignService {
 
     private final SignatureRepository signatureRepository;
 
+    private final SignatureTaskRepository signatureTaskRepository;
+
     private final SignatureMapper signatureMapper;
 
-    public PDFSignService(final SignatureRepository signatureRepository, final SignatureMapper signatureMapper) {
+    public PDFSignService(final SignatureRepository signatureRepository, final SignatureTaskRepository signatureTaskRepository,
+            final SignatureMapper signatureMapper) {
         this.signatureRepository = signatureRepository;
+        this.signatureTaskRepository = signatureTaskRepository;
         this.signatureMapper = signatureMapper;
     }
 
@@ -108,10 +115,11 @@ public class PDFSignService {
             // Sign the document using the detached mode, CMS or CAdES equivalent.
             signer.signDetached(digest, pks, signRequestModel.getChain(), null, null, null, 0, signRequestModel.getSignatureType());
             log.info("New PDF file has been signed and exported to: " + dest);
-            
+
             verifySignatures(dest);
 
-            final SignatureHistoryElementModel signatureHistoryElementModel = new SignatureHistoryElementModel(signRequestModel.getSenderEmail(), new Date());
+            final SignatureHistoryElementModel signatureHistoryElementModel =
+                    new SignatureHistoryElementModel(signRequestModel.getSenderEmail(), LocalDate.now());
 
             final SignedDocumentModel signedDocumentModel = new SignedDocumentModel();
             signedDocumentModel.setDocumentId(UUID.randomUUID());
@@ -124,6 +132,27 @@ public class PDFSignService {
             return signedDocumentModel;
         }
 
+    }
+
+    public SignTaskModel createSignTask(final SignTaskModel signTaskModel) throws IOException {
+        final UUID documentId = UUID.randomUUID();
+
+        storeFile(signTaskModel.getTmpDocument(), documentId);
+
+        final SignTaskEntity entity = this.signatureMapper.signTaskModelToSignTaskEntity(signTaskModel);
+        entity.setDocumentId(documentId);
+        entity.setOriginalFileName(signTaskModel.getOriginalFileName());
+        this.signatureTaskRepository.persistAndFlush(entity);
+
+        final SignTaskEntity result = this.signatureTaskRepository.findByDocumentId(entity.getDocumentId());
+
+        return this.signatureMapper.signTaskEntityToSignTaskModel(result);
+    }
+
+    public Path storeFile(final FileUpload fileUpload, final UUID documentId) throws IOException {
+        final String docExt = FilenameUtils.getExtension(fileUpload.fileName());
+        final String newName = documentId.toString() + "." + docExt;
+        return Files.copy(fileUpload.uploadedFile(), Paths.get(signedFileDestination, newName));
     }
 
     public PrivateKey getPrivateKey(final KeyStore keystore, final String p12Password, final String keyAlias)
@@ -194,8 +223,7 @@ public class PDFSignService {
     public Path documentIdToPath(final UUID documentId) {
         final SignedDocumentModel signedDocumentModel = getSignDocumentModel(documentId);
         final String signedDocumentName = signedDocumentModel.getSignedDocumentName();
-        final Path path = Paths.get(signedFileDestination, signedDocumentName);
-        return path;
+        return Paths.get(signedFileDestination, signedDocumentName);
     }
 
     public SignedDocumentModel getSignDocumentModel(final UUID documentId) {
