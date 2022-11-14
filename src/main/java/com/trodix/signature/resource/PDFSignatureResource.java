@@ -9,6 +9,7 @@ import java.security.Security;
 import java.security.cert.Certificate;
 import java.util.List;
 import java.util.UUID;
+import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.BeanParam;
 import javax.ws.rs.GET;
@@ -20,6 +21,8 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.eclipse.microprofile.jwt.Claims;
+import org.eclipse.microprofile.jwt.JsonWebToken;
 import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.trodix.signature.dto.request.CreateSignTaskRequest;
 import com.trodix.signature.dto.request.SignRequest;
@@ -33,6 +36,7 @@ import com.trodix.signature.service.PDFSignService;
 import lombok.extern.slf4j.Slf4j;
 
 @Path("/api/sign")
+@RolesAllowed({"app-user"})
 @Slf4j
 public class PDFSignatureResource {
 
@@ -40,9 +44,12 @@ public class PDFSignatureResource {
 
     private final SignatureMapper signatureMapper;
 
-    public PDFSignatureResource(final PDFSignService signService, final SignatureMapper signatureMapper) {
+    private final JsonWebToken jwt;
+
+    public PDFSignatureResource(final PDFSignService signService, final SignatureMapper signatureMapper, final JsonWebToken jwt) {
         this.signService = signService;
         this.signatureMapper = signatureMapper;
+        this.jwt = jwt;
     }
 
     @POST
@@ -67,7 +74,7 @@ public class PDFSignatureResource {
             signRequestModel.setPk(pk);
             signRequestModel.setReason(signRequest.getReason());
             signRequestModel.setLocation(signRequest.getLocation());
-            signRequestModel.setSenderEmail(signRequest.getSenderEmail());
+            signRequestModel.setSenderEmail(jwt.getClaim(Claims.email));
             signRequestModel.setSignPageNumber(signRequest.getSignPageNumber());
             signRequestModel.setSignXPos(signRequest.getSignXPos());
             signRequestModel.setSignYPos(signRequest.getSignYPos());
@@ -88,6 +95,7 @@ public class PDFSignatureResource {
 
         final SignTaskModel signTaskModel = SignatureMapper.signTaskRequestToSignTaskModel(signTaskRequest);
         signTaskModel.setOriginalFileName(signTaskRequest.getDocument().fileName());
+        signTaskModel.setSenderEmail(jwt.getClaim(Claims.email));
 
         final SignTaskModel result = this.signService.createSignTask(signTaskModel);
 

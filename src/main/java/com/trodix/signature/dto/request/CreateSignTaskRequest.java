@@ -16,9 +16,6 @@ public class CreateSignTaskRequest {
     private FileUpload document;
 
     @RestForm
-    private String senderEmail;
-
-    @RestForm
     private String recipientEmail;
 
     @RestForm

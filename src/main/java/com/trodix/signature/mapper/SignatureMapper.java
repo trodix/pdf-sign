@@ -38,7 +38,6 @@ public interface SignatureMapper {
         signTaskModel.setTmpDocument(signTaskRequest.getDocument());
         signTaskModel.setDueDate(signTaskRequest.getDueDate());
         signTaskModel.setRecipientEmail(signTaskRequest.getRecipientEmail());
-        signTaskModel.setSenderEmail(signTaskRequest.getSenderEmail());
 
         return signTaskModel;
     }

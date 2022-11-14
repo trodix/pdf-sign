@@ -97,6 +97,12 @@
       <artifactId>quarkus-jdbc-postgresql</artifactId>
     </dependency>
 
+    <!-- OpenId Connect - Keycloak -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-oidc</artifactId>
+    </dependency>
+
   </dependencies>
   <build>
     <plugins>

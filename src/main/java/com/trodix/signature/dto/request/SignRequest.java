@@ -21,9 +21,6 @@ public class SignRequest {
     private String p12Password;
 
     @RestForm
-    private String senderEmail;
-
-    @RestForm
     private FileUpload document;
 
     @RestForm
