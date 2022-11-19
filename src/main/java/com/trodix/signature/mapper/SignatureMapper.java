@@ -9,6 +9,8 @@ import com.trodix.signature.dto.response.SignedDocumentResponse;
 import com.trodix.signature.entity.SignTaskEntity;
 import com.trodix.signature.entity.SignatureHistoryElementEntity;
 import com.trodix.signature.entity.SignedDocumentEntity;
+import com.trodix.signature.model.SignRequestModel;
+import com.trodix.signature.model.SignRequestTaskModel;
 import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
@@ -17,11 +19,13 @@ import com.trodix.signature.model.SignedDocumentModel;
 public interface SignatureMapper {
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(source = "signTaskModel", target = "signTask")
     public SignedDocumentEntity signedDocumentModelToSignedDocumentEntity(SignedDocumentModel signedDocumentModel);
 
+    @Mapping(source = "signTask", target = "signTaskModel")
     public SignedDocumentModel signatureDocumentEntityToSignedDocumentModel(SignedDocumentEntity signatureDocumentEntity);
 
-    public List<SignedDocumentModel> signatureDocumentEntityListToSignedDocumentModelList(List<SignedDocumentEntity> signatureDocumentEntities);
+    public List<SignedDocumentModel> signedDocumentEntityListToSignedDocumentModelList(List<SignedDocumentEntity> signatureDocumentEntities);
 
     public SignedDocumentResponse signedDocumentModelToSignedDocumentResponse(SignedDocumentModel signedDocumentModel);
 
@@ -49,5 +53,13 @@ public interface SignatureMapper {
     public SignTaskModel signTaskEntityToSignTaskModel(SignTaskEntity signTaskEntity);
 
     public SignTaskResponse signTaskModelToCreateSignTaskResponse(SignTaskModel signTaskModel);
+
+    @Mapping(target = "originalFile", ignore = true)
+    @Mapping(target = "originalFileName", ignore = true)
+    public SignRequestModel signRequestTaskModelToSignRequestModel(SignRequestTaskModel signRequestTaskModel);
+
+    public List<SignTaskModel> signTaskEntityListToSignTaskModelList(List<SignTaskEntity> signTaskEntityList);
+
+    public List<SignTaskResponse> signTaskModelListToSignTaskResponseList(List<SignTaskModel> signTaskModelList);
 
 }

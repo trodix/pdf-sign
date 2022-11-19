@@ -24,7 +24,7 @@ public class SecurityInterceptor {
     public Optional<RestResponse<Void>> check() {
 
         if (!this.jwt.containsClaim(Claims.email.name()) || StringUtil.isNullOrEmpty(this.jwt.getClaim(Claims.email))) {
-            final String msg = "The JWT token did not contained the mandatory" + Claims.email + " claim.";
+            final String msg = "The JWT token did not contained the mandatory " + Claims.email + " claim.";
             log.info(msg);
             return Optional.of(RestResponse.status(StatusCode.UNAUTHORIZED, msg));
         }

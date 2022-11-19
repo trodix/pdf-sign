@@ -1,10 +1,8 @@
 package com.trodix.signature.model;
 
-import java.io.File;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.util.UUID;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 import com.itextpdf.signatures.DigestAlgorithms;
 import com.itextpdf.signatures.PdfSigner.CryptoStandard;
 import lombok.AllArgsConstructor;
@@ -13,10 +11,9 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class SignRequestModel {
+public class SignRequestTaskModel {
 
-    private File originalFile;
-    private String originalFileName;
+    private UUID documentId;
     private Certificate[] chain;
     private PrivateKey pk;
     private String senderEmail;
@@ -29,9 +26,8 @@ public class SignRequestModel {
     private Integer signPageNumber;
     private Float signXPos;
     private Float signYPos;
-    private UUID documentId;
 
-    public SignRequestModel() {
+    public SignRequestTaskModel() {
         this.signatureType = CryptoStandard.CMS;
         this.digestAlgorithm = DigestAlgorithms.SHA256;
         this.keyAlias = "1";
