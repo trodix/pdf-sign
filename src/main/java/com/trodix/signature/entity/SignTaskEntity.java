@@ -2,16 +2,25 @@ package com.trodix.signature.entity;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
+import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
+import javax.persistence.OneToOne;
 import org.hibernate.annotations.CreationTimestamp;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Getter
 @Setter
-public class SignTaskEntity extends PanacheEntity {
+public class SignTaskEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
 
     private UUID documentId;
 
@@ -26,12 +35,11 @@ public class SignTaskEntity extends PanacheEntity {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    public static SignTaskEntity findByDocumentId(UUID documentId) {
-        return find("documentId", documentId).singleResult();
-    }
-
-    public static void deleteByDocumentId(UUID documentId) {
-        delete("documentId", documentId);
-    }
+    @OneToOne(
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.ALL,
+            orphanRemoval = true,
+            mappedBy = "signTask")
+    private SignedDocumentEntity signedDocument;
 
 }

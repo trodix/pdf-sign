@@ -6,34 +6,37 @@ import java.util.UUID;
 import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
+import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
+import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import javax.persistence.OneToOne;
 import lombok.Getter;
 import lombok.Setter;
 
 @Entity
 @Getter
 @Setter
-public class SignedDocumentEntity extends PanacheEntity {
+public class SignedDocumentEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
 
     private UUID documentId;
 
     private String originalFileName;
 
-    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    private boolean downloaded;
+
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
     @JoinColumn(name = "signed_document_id", referencedColumnName = "id")
-    @OnDelete(action = OnDeleteAction.CASCADE)
+    // @OnDelete(action = OnDeleteAction.CASCADE)
     private List<SignatureHistoryElementEntity> signatureHistory;
 
-    public static SignedDocumentEntity findByDocumentId(final UUID documentId) {
-        return find("documentId", documentId).singleResult();
-    }
-
-    public static void deleteByDocumentId(final UUID documentId) {
-        delete("documentId", documentId);
-    }
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JoinColumn(name = "sign_task_id")
+    private SignTaskEntity signTask;
 
 }
