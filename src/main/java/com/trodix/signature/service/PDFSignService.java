@@ -22,13 +22,13 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
-import javax.enterprise.context.ApplicationScoped;
 import javax.persistence.NoResultException;
-import javax.transaction.Transactional;
-import javax.ws.rs.NotFoundException;
 import org.apache.commons.io.FilenameUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
@@ -49,26 +49,33 @@ import com.trodix.signature.model.SignRequestTaskModel;
 import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
-import io.quarkus.scheduler.Scheduled;
+import com.trodix.signature.repository.SignTaskRepository;
+import com.trodix.signature.repository.SignedDocumentRepository;
 import lombok.extern.slf4j.Slf4j;
 
-@ApplicationScoped
-@Transactional
+@Service
 @Slf4j
 public class PDFSignService {
 
-    @ConfigProperty(name = "app.signed-file-destination", defaultValue = "/tmp")
+    @Value("${app.signed-file-destination}")
     private String signedFileDestination;
 
     private final SignatureMapper signatureMapper;
 
-    public PDFSignService(final SignatureMapper signatureMapper) {
+    private final SignedDocumentRepository signedDocumentRepository;
+
+    private final SignTaskRepository signTaskRepository;
+
+    public PDFSignService(final SignatureMapper signatureMapper, final SignedDocumentRepository signedDocumentRepository,
+            final SignTaskRepository signTaskRepository) {
         this.signatureMapper = signatureMapper;
+        this.signedDocumentRepository = signedDocumentRepository;
+        this.signTaskRepository = signTaskRepository;
     }
 
     public SignedDocumentModel signPdf(final SignRequestTaskModel signRequestTaskModel) throws GeneralSecurityException, IOException {
         final File document = getTaskDocument(signRequestTaskModel.getDocumentId());
-        final SignTaskEntity entity = SignTaskEntity.findByDocumentId(signRequestTaskModel.getDocumentId());
+        final SignTaskEntity entity = signTaskRepository.findByDocumentId(signRequestTaskModel.getDocumentId()).orElseThrow(NoResultException::new);
 
         final SignRequestModel signRequestModel = this.signatureMapper.signRequestTaskModelToSignRequestModel(signRequestTaskModel);
         signRequestModel.setOriginalFile(document);
@@ -150,14 +157,14 @@ public class PDFSignService {
         storeFile(signTaskModel.getTmpDocument(), signTaskModel.getDocumentId());
 
         final SignTaskEntity entity = this.signatureMapper.signTaskModelToSignTaskEntity(signTaskModel);
-        entity.persistAndFlush();
+        signTaskRepository.saveAndFlush(entity);
 
-        final SignTaskEntity result = SignTaskEntity.findByDocumentId(entity.getDocumentId());
+        final SignTaskEntity result = signTaskRepository.findByDocumentId(entity.getDocumentId()).orElseThrow(NoResultException::new);
 
         return this.signatureMapper.signTaskEntityToSignTaskModel(result);
     }
 
-    public Path storeFile(final FileUpload fileUpload, final UUID documentId) throws IOException {
+    public Path storeFile(final MultipartFile fileUpload, final UUID documentId) throws IOException {
         return storeFile(signedFileDestination, fileUpload, documentId);
     }
 
@@ -175,10 +182,12 @@ public class PDFSignService {
         return key;
     }
 
-    public static Path storeFile(final String signedFileDestination, final FileUpload fileUpload, final UUID documentId) throws IOException {
-        final String docExt = FilenameUtils.getExtension(fileUpload.fileName());
+    public static Path storeFile(final String signedFileDestination, final MultipartFile fileUpload, final UUID documentId) throws IOException {
+        final String docExt = FilenameUtils.getExtension(fileUpload.getOriginalFilename());
         final String newName = documentId.toString() + "." + docExt;
-        return Files.copy(fileUpload.uploadedFile(), Paths.get(signedFileDestination, newName));
+        final Path dest = Paths.get(signedFileDestination, newName);
+        fileUpload.transferTo(dest);
+        return dest;
     }
 
     public static KeyStore loadKeystore(final String path, final String p12Password)
@@ -247,34 +256,34 @@ public class PDFSignService {
     }
 
     public SignedDocumentModel getSignedDocumentModel(final UUID documentId) {
-        final SignedDocumentEntity entity = SignedDocumentEntity.findByDocumentId(documentId);
+        final SignedDocumentEntity entity = signedDocumentRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
 
         return signatureMapper.signatureDocumentEntityToSignedDocumentModel(entity);
     }
 
     public SignTaskModel getTaskDocumentModel(final UUID documentId) {
-        final SignTaskEntity entity = SignTaskEntity.findByDocumentId(documentId);
+        final SignTaskEntity entity = signTaskRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
 
         return signatureMapper.signTaskEntityToSignTaskModel(entity);
     }
 
     public void registerSignedDocument(final SignedDocumentModel signedDocumentModel) {
         final SignedDocumentEntity newEntity = signatureMapper.signedDocumentModelToSignedDocumentEntity(signedDocumentModel);
-        final SignTaskEntity signTaskEntity = SignTaskEntity.findByDocumentId(signedDocumentModel.getDocumentId());
+        final SignTaskEntity signTaskEntity = signTaskRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
         newEntity.setSignTask(signTaskEntity);
         try {
-            final SignedDocumentEntity oldEntity = SignedDocumentEntity.findByDocumentId(signedDocumentModel.getDocumentId());
-            newEntity.id = oldEntity.id;
+            final SignedDocumentEntity oldEntity = signedDocumentRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
+            newEntity.setId(oldEntity.getId());
         } catch (final NoResultException e) {
-            newEntity.persistAndFlush();
+            signedDocumentRepository.saveAndFlush(newEntity);
         }
 
     }
 
     public void markSignedDocumentAsDownloaded(final UUID documentId) {
-        final SignedDocumentEntity entity = SignedDocumentEntity.findByDocumentId(documentId);
+        final SignedDocumentEntity entity = signedDocumentRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
         entity.setDownloaded(true);
-        entity.persistAndFlush();
+        signedDocumentRepository.saveAndFlush(entity);
 
         downloadedSignedDocumentsCleaner();
     }
@@ -293,15 +302,16 @@ public class PDFSignService {
             final File taskDocument = getTaskDocument(documentId);
             Files.delete(taskDocument.toPath());
 
-            SignTaskEntity entity = SignTaskEntity.findByDocumentId(documentId);
+            final SignTaskEntity entity = signTaskRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
+            entity.getSignedDocument().setSignatureHistory(null);
             entity.setSignedDocument(null);
-            entity.persistAndFlush();
+            signTaskRepository.saveAndFlush(entity);
 
             // SignedDocumentEntity entity = SignedDocumentEntity.findByDocumentId(documentId);
             // entity.setSignTask(null);
             // entity.persistAndFlush();
 
-            SignTaskEntity.deleteByDocumentId(documentId);
+            signTaskRepository.deleteByDocumentId(documentId);
             deleteSignedDocument(documentId);
         } catch (final IOException e) {
             log.error("Error while deleting task {}", documentId, e);
@@ -319,7 +329,7 @@ public class PDFSignService {
             log.error("Error while reading the document from id: {}", documentId);
         }
 
-        throw new NotFoundException();
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
     public File getTaskDocument(final UUID documentId) {
@@ -333,21 +343,33 @@ public class PDFSignService {
             log.error("Error while reading the document from id: {}", documentId);
         }
 
-        throw new NotFoundException();
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND);
     }
 
     public List<SignedDocumentModel> getSignedDocuments() {
-        final List<SignedDocumentEntity> entities = SignedDocumentEntity.listAll();
+        final List<SignedDocumentEntity> entities = signedDocumentRepository.findAll();
         return signatureMapper.signedDocumentEntityListToSignedDocumentModelList(entities);
     }
 
     public List<SignTaskModel> getTaskDocuments() {
-        final List<SignTaskEntity> entities = SignTaskEntity.listAll();
+        final List<SignTaskEntity> entities = signTaskRepository.findAll();
         return signatureMapper.signTaskEntityListToSignTaskModelList(entities);
     }
+
     protected void downloadedSignedDocumentsCleaner() {
-        final List<SignedDocumentEntity> downloadedDocuments = SignedDocumentEntity.findDownloaded();
+        final List<SignedDocumentEntity> downloadedDocuments = signedDocumentRepository.findByDownloaded(true);
         downloadedDocuments.forEach(document -> deleteTask(document.getDocumentId()));
+    }
+
+    public static File multipartFileToFile(MultipartFile file) throws IOException {
+        File convFile = new File(file.getOriginalFilename());
+        convFile.createNewFile();
+
+        try (FileOutputStream fos = new FileOutputStream(convFile)) {
+            fos.write(file.getBytes());
+        }
+
+        return convFile;
     }
 
 }

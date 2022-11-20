@@ -1,7 +1,6 @@
 package com.trodix.signature.dto.request;
 
-import org.jboss.resteasy.reactive.RestForm;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.springframework.web.multipart.MultipartFile;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,28 +10,20 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SignRequest {
 
-    @RestForm
     private String reason;
 
-    @RestForm
     private String location;
 
-    @RestForm
     private String p12Password;
 
-    @RestForm
-    private FileUpload document;
+    private MultipartFile document;
 
-    @RestForm
-    private FileUpload cert;
+    private MultipartFile cert;
 
-    @RestForm
     private Integer signPageNumber;
 
-    @RestForm
     private Float signXPos;
 
-    @RestForm
     private Float signYPos;
 
 }

@@ -2,7 +2,7 @@ package com.trodix.signature.model;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.springframework.web.multipart.MultipartFile;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -16,7 +16,7 @@ public class SignTaskModel {
 
     private UUID documentId;
 
-    private FileUpload tmpDocument;
+    private MultipartFile tmpDocument;
 
     private String senderEmail;
 

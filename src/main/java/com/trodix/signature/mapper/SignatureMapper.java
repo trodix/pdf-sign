@@ -15,7 +15,7 @@ import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
 
-@Mapper(componentModel = "cdi")
+@Mapper(componentModel = "spring")
 public interface SignatureMapper {
 
     @Mapping(target = "id", ignore = true)
@@ -47,6 +47,7 @@ public interface SignatureMapper {
     }
 
     @Mapping(target = "id", ignore = true)
+    @Mapping(target = "signedDocument", ignore = true)
     public SignTaskEntity signTaskModelToSignTaskEntity(SignTaskModel signTaskModel);
 
     @Mapping(target = "tmpDocument", ignore = true)
