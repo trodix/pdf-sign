@@ -20,8 +20,11 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import javax.mail.MessagingException;
 import javax.persistence.NoResultException;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +32,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfReader;
@@ -51,6 +55,7 @@ import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
 import com.trodix.signature.repository.SignTaskRepository;
 import com.trodix.signature.repository.SignedDocumentRepository;
+import freemarker.template.TemplateException;
 import lombok.extern.slf4j.Slf4j;
 
 @Service
@@ -66,11 +71,14 @@ public class PDFSignService {
 
     private final SignTaskRepository signTaskRepository;
 
+    private final EmailService emailService;
+
     public PDFSignService(final SignatureMapper signatureMapper, final SignedDocumentRepository signedDocumentRepository,
-            final SignTaskRepository signTaskRepository) {
+            final SignTaskRepository signTaskRepository, final EmailService emailService) {
         this.signatureMapper = signatureMapper;
         this.signedDocumentRepository = signedDocumentRepository;
         this.signTaskRepository = signTaskRepository;
+        this.emailService = emailService;
     }
 
     public SignedDocumentModel signPdf(final SignRequestTaskModel signRequestTaskModel) throws GeneralSecurityException, IOException {
@@ -160,6 +168,22 @@ public class PDFSignService {
         signTaskRepository.saveAndFlush(entity);
 
         final SignTaskEntity result = signTaskRepository.findByDocumentId(entity.getDocumentId()).orElseThrow(NoResultException::new);
+
+        final String to = entity.getRecipientEmail();
+        final String subject = "[Sign PDF] New Sign request";
+        final Map<String, Object> tpl = new HashMap<>();
+        tpl.put("senderEmail", entity.getSenderEmail());
+        tpl.put("originalFileName", entity.getOriginalFileName());
+
+        final String serverUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        final String signDocumentUrl = serverUrl + "/api/sign/" + entity.getDocumentId();
+        tpl.put("signDocumentUrl", signDocumentUrl);
+
+        try {
+            this.emailService.sendNewSignTaskEmailNotification(to, subject, tpl);
+        } catch (IOException | TemplateException | MessagingException e) {
+            log.error("Error while sending email notification", e);
+        }
 
         return this.signatureMapper.signTaskEntityToSignTaskModel(result);
     }
@@ -272,12 +296,33 @@ public class PDFSignService {
         final SignTaskEntity signTaskEntity = signTaskRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
         newEntity.setSignTask(signTaskEntity);
         try {
-            final SignedDocumentEntity oldEntity = signedDocumentRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
+            final SignedDocumentEntity oldEntity =
+                    signedDocumentRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
             newEntity.setId(oldEntity.getId());
         } catch (final NoResultException e) {
             signedDocumentRepository.saveAndFlush(newEntity);
         }
 
+        final String to = newEntity.getSignTask().getSenderEmail();
+        final String subject = "[Sign PDF] Your file has been signed";
+        final Map<String, Object> tpl = new HashMap<>();
+        tpl.put("senderEmail", newEntity.getSignTask().getSenderEmail());
+        tpl.put("recipientEmail", newEntity.getSignTask().getRecipientEmail());
+        tpl.put("documentId", newEntity.getSignTask().getDocumentId());
+        tpl.put("originalFileName", newEntity.getSignTask().getOriginalFileName());
+        tpl.put("createdAt", newEntity.getSignTask().getCreatedAt());
+        tpl.put("dueDate", newEntity.getSignTask().getDueDate());
+
+
+        final String serverUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
+        final String downloadUrl = serverUrl + "/api/sign/" + newEntity.getSignTask().getDocumentId();
+        tpl.put("downloadUrl", downloadUrl);
+
+        try {
+            this.emailService.sendSignedDocumentEmailNotification(to, subject, tpl);
+        } catch (IOException | TemplateException | MessagingException e) {
+            log.error("Error while sending email notification", e);
+        }
     }
 
     public void markSignedDocumentAsDownloaded(final UUID documentId) {
@@ -285,7 +330,19 @@ public class PDFSignService {
         entity.setDownloaded(true);
         signedDocumentRepository.saveAndFlush(entity);
 
-        downloadedSignedDocumentsCleaner();
+        // FIXME downloadedSignedDocumentsCleaner();
+
+        final String to = entity.getSignTask().getRecipientEmail();
+        final String subject = "[Sign PDF] Your file has been downloaded";
+        final Map<String, Object> tpl = new HashMap<>();
+        tpl.put("senderEmail", entity.getSignTask().getSenderEmail());
+        tpl.put("originalFileName", entity.getSignTask().getOriginalFileName());
+
+        try {
+            this.emailService.sendDownloadedDocumentEmailNotification(to, subject, tpl);
+        } catch (IOException | TemplateException | MessagingException e) {
+            log.error("Error while sending email notification", e);
+        }
     }
 
     public void deleteSignedDocument(final UUID documentId) {
@@ -361,8 +418,8 @@ public class PDFSignService {
         downloadedDocuments.forEach(document -> deleteTask(document.getDocumentId()));
     }
 
-    public static File multipartFileToFile(MultipartFile file) throws IOException {
-        File convFile = new File(file.getOriginalFilename());
+    public static File multipartFileToFile(final MultipartFile file) throws IOException {
+        final File convFile = new File(file.getOriginalFilename());
         convFile.createNewFile();
 
         try (FileOutputStream fos = new FileOutputStream(convFile)) {
