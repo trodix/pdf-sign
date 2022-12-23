@@ -44,6 +44,8 @@
 
         <logger name="com.trodix.signature" level="DEBUG" />
 
+        <logger name="com.trodix.signature.security.filters" level="INFO" />
+
         <!--
         <logger name="org.springframework.web.client.RestTemplate" level="debug" additivity="false">
             <appender-ref ref="RollingFile" />

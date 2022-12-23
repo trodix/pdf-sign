@@ -24,6 +24,8 @@ public class SignTaskModel {
 
     private LocalDateTime dueDate;
 
+    private SignTaskStatus signTaskStatus;
+
     private LocalDateTime createdAt;
 
 }

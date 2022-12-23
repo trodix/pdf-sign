@@ -53,6 +53,7 @@ import com.trodix.signature.model.SignRequestTaskModel;
 import com.trodix.signature.model.SignTaskModel;
 import com.trodix.signature.model.SignatureHistoryElementModel;
 import com.trodix.signature.model.SignedDocumentModel;
+import com.trodix.signature.model.SignTaskStatus;
 import com.trodix.signature.repository.SignTaskRepository;
 import com.trodix.signature.repository.SignedDocumentRepository;
 import freemarker.template.TemplateException;
@@ -64,6 +65,9 @@ public class PDFSignService {
 
     @Value("${app.signed-file-destination}")
     private String signedFileDestination;
+
+    @Value("${app.frontend.baseurl}")
+    private String frontendUrl;
 
     private final SignatureMapper signatureMapper;
 
@@ -165,6 +169,7 @@ public class PDFSignService {
         storeFile(signTaskModel.getTmpDocument(), signTaskModel.getDocumentId());
 
         final SignTaskEntity entity = this.signatureMapper.signTaskModelToSignTaskEntity(signTaskModel);
+        entity.setSignTaskStatus(SignTaskStatus.IN_PROGRESS);
         signTaskRepository.saveAndFlush(entity);
 
         final SignTaskEntity result = signTaskRepository.findByDocumentId(entity.getDocumentId()).orElseThrow(NoResultException::new);
@@ -175,8 +180,7 @@ public class PDFSignService {
         tpl.put("senderEmail", entity.getSenderEmail());
         tpl.put("originalFileName", entity.getOriginalFileName());
 
-        final String serverUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        final String signDocumentUrl = serverUrl + "/api/sign/" + entity.getDocumentId();
+        final String signDocumentUrl = frontendUrl + "/tasks/preview/" + entity.getDocumentId();
         tpl.put("signDocumentUrl", signDocumentUrl);
 
         try {
@@ -274,6 +278,9 @@ public class PDFSignService {
 
     public Path taskDocumentIdToPath(final UUID documentId) {
         final SignTaskModel signedDocumentModel = getTaskDocumentModel(documentId);
+        if (signedDocumentModel == null) {
+            throw new RuntimeException("Sign task not found for documentId " + documentId);
+        }
         final String ext = FilenameUtils.getExtension(signedDocumentModel.getOriginalFileName());
         final String signedDocumentName = signedDocumentModel.getDocumentId().toString() + "." + ext;
         return Paths.get(signedFileDestination, signedDocumentName);
@@ -286,7 +293,7 @@ public class PDFSignService {
     }
 
     public SignTaskModel getTaskDocumentModel(final UUID documentId) {
-        final SignTaskEntity entity = signTaskRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
+        final SignTaskEntity entity = signTaskRepository.findByDocumentId(documentId).orElse(null);
 
         return signatureMapper.signTaskEntityToSignTaskModel(entity);
     }
@@ -294,6 +301,7 @@ public class PDFSignService {
     public void registerSignedDocument(final SignedDocumentModel signedDocumentModel) {
         final SignedDocumentEntity newEntity = signatureMapper.signedDocumentModelToSignedDocumentEntity(signedDocumentModel);
         final SignTaskEntity signTaskEntity = signTaskRepository.findByDocumentId(signedDocumentModel.getDocumentId()).orElseThrow(NoResultException::new);
+        signTaskEntity.setSignTaskStatus(SignTaskStatus.SIGNED);
         newEntity.setSignTask(signTaskEntity);
         try {
             final SignedDocumentEntity oldEntity =
@@ -313,9 +321,7 @@ public class PDFSignService {
         tpl.put("createdAt", newEntity.getSignTask().getCreatedAt());
         tpl.put("dueDate", newEntity.getSignTask().getDueDate());
 
-
-        final String serverUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        final String downloadUrl = serverUrl + "/api/sign/" + newEntity.getSignTask().getDocumentId();
+        final String downloadUrl = frontendUrl + "/tasks/preview/" + newEntity.getSignTask().getDocumentId();
         tpl.put("downloadUrl", downloadUrl);
 
         try {
@@ -328,6 +334,7 @@ public class PDFSignService {
     public void markSignedDocumentAsDownloaded(final UUID documentId) {
         final SignedDocumentEntity entity = signedDocumentRepository.findByDocumentId(documentId).orElseThrow(NoResultException::new);
         entity.setDownloaded(true);
+        entity.getSignTask().setSignTaskStatus(SignTaskStatus.DOWNLOADED);
         signedDocumentRepository.saveAndFlush(entity);
 
         // FIXME downloadedSignedDocumentsCleaner();
@@ -408,8 +415,8 @@ public class PDFSignService {
         return signatureMapper.signedDocumentEntityListToSignedDocumentModelList(entities);
     }
 
-    public List<SignTaskModel> getTaskDocuments() {
-        final List<SignTaskEntity> entities = signTaskRepository.findAll();
+    public List<SignTaskModel> getTaskDocumentsForUser(final String email) {
+        final List<SignTaskEntity> entities = signTaskRepository.findForUser(email);
         return signatureMapper.signTaskEntityListToSignTaskModelList(entities);
     }
 

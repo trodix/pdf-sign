@@ -127,6 +127,10 @@ public class PDFSignatureController {
 
         final SignTaskModel signTaskModel = this.signService.getTaskDocumentModel(documentId);
 
+        if (signTaskModel == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign task not found for documentId " + documentId);
+        }
+
         if (!new EqualsBuilder().append(signTaskModel.getRecipientEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for documentId " + documentId);
@@ -241,23 +245,26 @@ public class PDFSignatureController {
     }
 
     @GetMapping("/task/{documentId}")
-    public List<SignTaskResponse> getSignTask(final UUID documentId) throws NotImplementedException {
+    public SignTaskResponse getSignTask(@PathVariable(value = "documentId") final UUID documentId) throws NotImplementedException {
 
         final SignTaskModel signTaskModel = this.signService.getTaskDocumentModel(documentId);
 
-        if (!new EqualsBuilder().append(signTaskModel.getRecipientEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+        if (signTaskModel == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign task not found for documentId " + documentId);
+        }
+
+        if (!hasAccesToTask(signTaskModel, jwt)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for documentId " + documentId);
         }
 
-        throw new NotImplementedException();
+        return this.signatureMapper.signTaskModelToCreateSignTaskResponse(signTaskModel);
     }
 
     @GetMapping("/task/list")
     public List<SignTaskResponse> getTaskDocuments() {
 
-        final List<SignTaskModel> result =
-                this.signService.getTaskDocuments().stream().filter(i -> i.getRecipientEmail().equals(jwt.getClaim(Claims.EMAIL.value))).toList();
+        final List<SignTaskModel> result = this.signService.getTaskDocumentsForUser(jwt.getClaim(Claims.EMAIL.value));
         return signatureMapper.signTaskModelListToSignTaskResponseList(result);
     }
 
@@ -267,7 +274,11 @@ public class PDFSignatureController {
 
         final SignTaskModel signTaskModel = this.signService.getTaskDocumentModel(documentId);
 
-        if (!new EqualsBuilder().append(signTaskModel.getRecipientEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+        if (signTaskModel == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign task not found for documentId " + documentId);
+        }
+
+        if (!hasAccesToTask(signTaskModel, jwt)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for documentId " + documentId);
         }
@@ -283,6 +294,16 @@ public class PDFSignatureController {
                 .headers(headers)
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(resource);
+    }
+
+    private boolean hasAccesToTask(final SignTaskModel signTaskModel, final Jwt jwt) {
+        if (new EqualsBuilder().append(signTaskModel.getRecipientEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+            return true;
+        } else if (new EqualsBuilder().append(signTaskModel.getSenderEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+            return true;
+        }
+
+        return false;
     }
 
 }

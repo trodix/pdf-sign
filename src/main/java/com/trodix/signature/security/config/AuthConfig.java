@@ -1,5 +1,6 @@
 package com.trodix.signature.security.config;
 
+import java.util.Arrays;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -11,6 +12,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.trodix.signature.security.KeycloakJwtAuthenticationConverter;
 
 @Configuration
@@ -34,6 +38,8 @@ public class AuthConfig {
     @Bean
     public SecurityFilterChain filterChain(final HttpSecurity http) throws Exception {
 
+        http.cors();
+
         // OAUTH authentication
         http.requestMatchers()
                 .anyRequest()
@@ -52,7 +58,10 @@ public class AuthConfig {
     /**
      * Add Bean injection capabilities for Jwt
      * 
-     * <p>This bean is request scoped, this means that components using this bean must also be request scoped</p>
+     * <p>
+     * This bean is request scoped, this means that components using this bean must also be request
+     * scoped
+     * </p>
      * 
      * @return The Jwt associated with the Principal
      */
@@ -60,6 +69,21 @@ public class AuthConfig {
     @Scope(WebApplicationContext.SCOPE_REQUEST)
     public Jwt jwt() {
         return (Jwt) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        final CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:4200"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS", "HEAD"));
+        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setExposedHeaders(Arrays.asList("X-Get-Header"));
+        configuration.setMaxAge(3600L);
+        final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        
+        return source;
     }
 
 }
