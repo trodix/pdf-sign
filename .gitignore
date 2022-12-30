@@ -41,3 +41,4 @@ nb-configuration.xml
 
 # app
 *.log
+data/
