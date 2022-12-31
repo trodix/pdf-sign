@@ -6,6 +6,6 @@
     <body>
       <p>Hi,</p>
       <p>Your document ${originalFileName} has been digitally signed by ${recipientEmail}</p>
-      <p>You can download your document by following this link <a href="${downloadUrl}"></a>${downloadUrl}</p>
+      <p>You can download your document by following this link <a href="${downloadUrl}">${downloadUrl}</a></p>
     </body>
 </html>
