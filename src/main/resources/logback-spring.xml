@@ -53,6 +53,8 @@
         </logger>
         -->
 
+        <logger name="org.springframework.jdbc.core" level="trace" />
+
     </springProfile>
 
 </configuration>

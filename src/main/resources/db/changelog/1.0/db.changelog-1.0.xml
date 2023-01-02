@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet id="create-user-table" author="svallet">
+        <createTable tableName="user_">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="email" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="user_email_ix1" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="create-task-table" author="svallet">
+        <createTable tableName="task">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="uid" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="task_uid_ix1" />
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_task_user" references="user_(id)" />
+            </column>
+            <column name="due_date" type="DATE">
+                <constraints nullable="true" />
+            </column>
+            <column name="task_status" type="VARCHAR(50)">
+                <constraints nullable="false" />
+            </column>
+            <column name="created_at" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="create-task_recipient-table" author="svallet">
+        <createTable tableName="task_recipient">
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_recipient_task" references="user_(id)" />
+            </column>
+            <column name="task_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_recipient_user" references="task(id)" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="create-document-table" author="svallet">
+        <createTable tableName="document">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="task_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_document_task" references="task(id)" />
+            </column>
+            <column name="uid" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true" uniqueConstraintName="document_uid_ix1"/>
+            </column>
+            <column name="downloaded" type="BOOLEAN">
+                <constraints nullable="false" />
+            </column>
+            <column name="original_file_name" type="VARCHAR(255)">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="create-task_history-table" author="svallet">
+        <createTable tableName="task_history">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" />
+            </column>
+            <column name="task_id" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_task-history_task" references="task(id)" />
+            </column>
+            <column name="signed_by" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_task-history_user" references="user_(id)" />
+            </column>
+            <column name="signed_at" type="DATETIME">
+                <constraints nullable="false" />
+            </column>
+        </createTable>
+    </changeSet>	
+
+</databaseChangeLog>
