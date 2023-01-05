@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -339,6 +340,10 @@ public class TaskRepository {
      * @param taskEntity
      */
     protected void deleteOldSignatureHistoryEntryRelations(final TaskEntity taskEntity) {
+
+        if (CollectionUtils.isEmpty(taskEntity.getSignatureHistory())) {
+            return;
+        }
 
         final MapSqlParameterSource deleteTSHEntryRelationQueryParams = new MapSqlParameterSource();
         deleteTSHEntryRelationQueryParams.addValue("task_id", taskEntity.getId());
