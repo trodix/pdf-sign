@@ -25,8 +25,6 @@ import com.trodix.signature.domain.entity.SignatureHistoryEntryEntity;
 import com.trodix.signature.domain.entity.TaskEntity;
 import com.trodix.signature.domain.entity.UserEntity;
 import com.trodix.signature.domain.model.SignTaskStatus;
-import com.trodix.signature.domain.model.User;
-import com.trodix.signature.domain.service.UserService;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @Testcontainers
@@ -34,9 +32,6 @@ public class TaskRepositoryIT {
 
     @Autowired
     private TaskRepository taskRepository;
-
-    @Autowired
-    private UserService userService;
 
     @Container
     public static PostgreSQLContainer container = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15.0"))
@@ -66,10 +61,9 @@ public class TaskRepositoryIT {
     @Test
     public void testPersistTask() {
 
-        final User initiatorModel = userService.getOrCreateUser("test1@trodix.com");
         final UserEntity initiator = new UserEntity();
-        initiator.setId(initiatorModel.getId());
-        initiator.setEmail(initiatorModel.getEmail());
+        initiator.setId(1L);
+        initiator.setEmail("test1@trodix.com");
 
         final List<DocumentEntity> documentList = new ArrayList<>();
         final DocumentEntity document1 = new DocumentEntity();
