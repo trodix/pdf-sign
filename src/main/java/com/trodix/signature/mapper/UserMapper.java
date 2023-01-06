@@ -1,8 +1,8 @@
 package com.trodix.signature.mapper;
 
+import org.mapstruct.Mapper;
 import com.trodix.signature.domain.entity.UserEntity;
 import com.trodix.signature.domain.model.User;
-import org.mapstruct.Mapper;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {

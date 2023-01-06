@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet context="dev" id="insert-task-1" author="svallet">
+        <insert tableName="task">
+            <column name="uid" value="4509bad5-a9f8-4ef8-8fbe-376971abc932" />
+            <column name="task_status" value="P" />
+            <column name="due_date" value="2022-12-24" />
+            <column name="created_at" value="2022-12-22 08:05:15" />
+            <column name="user_id" value="1" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-task-2" author="svallet">
+        <insert tableName="task">
+            <column name="uid" value="9f449fdd-f56a-42dd-b268-fa62eeceb60d" />
+            <column name="task_status" value="S" />
+            <column name="due_date" value="2022-11-14" />
+            <column name="created_at" value="2022-11-12 10:01:13" />
+            <column name="user_id" value="2" />
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

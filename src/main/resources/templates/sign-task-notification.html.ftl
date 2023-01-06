@@ -5,7 +5,12 @@
     </head>
     <body>
       <p>Hi,</p>
-      <p>${senderEmail} sent you a sign request for the document ${originalFileName}.</p>
-      <p>You can sign this document by following this link <a href="${signDocumentUrl}">${signDocumentUrl}</a></p>
+      <p>${initiatorEmail} sent you a sign request for the following document list :</p>
+      <ul>
+        <#list documentList as document>
+          <li>${document.originalFileName}</li>
+        </#list>
+      </ul>
+      <p>You can sign this document(s) by following this link <a href="${taskUrl}">${taskUrl}</a></p>
     </body>
 </html>

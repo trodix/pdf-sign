@@ -2,10 +2,9 @@ package com.trodix.signature.persistance.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.DateFormat;
+import java.sql.Types;
 import java.util.List;
 import java.util.UUID;
-import org.apache.commons.lang3.time.DateUtils;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -28,8 +27,8 @@ public class SignatureHistoryRepository {
 
     public static final String COLUMN_ID = "id";
     public static final String COLUMN_SIGNED_AT = "signed_at";
-    public static final String COLUMN_USER_ID = "user_id";
-    public static final String COLUMN_USER_EMAIL = "user_email";
+    public static final String COLUMN_USER_ID = "signed_by";
+    public static final String COLUMN_USER_EMAIL = "email";
 
     static class SignatureHistoryEntryEntityRowMapper implements RowMapper<SignatureHistoryEntryEntity> {
 
@@ -54,13 +53,13 @@ public class SignatureHistoryRepository {
     public List<SignatureHistoryEntryEntity> findByTaskId(final UUID taskId) {
 
         final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("taskId", taskId);
+        params.addValue("taskId", taskId, Types.VARCHAR);
 
         final String query = """
-                SELECT th.*, u.email FROM task_history th
-                INNER JOIN task t ON t.id = th.task_id
-                INNER JOIN user_ u ON th.user_id = u.id
-                WHERE t.uid = :taskId
+                SELECT th.*, u.email FROM task_history th 
+                INNER JOIN task t ON t.id = th.task_id 
+                INNER JOIN user_ u ON th.signed_by = u.id 
+                WHERE t.uid = :taskId 
                 """;
 
         return jdbcTemplate.query(query, params, new SignatureHistoryEntryEntityRowMapper());

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet context="dev" id="insert-document-1" author="svallet">
+        <insert tableName="document">
+            <column name="uid" value="aaf4c614-784d-4d2e-aee4-c93a18a523ee" />
+            <column name="original_file_name" value="document1-test.pdf" />
+            <column name="downloaded" value="false" />
+            <column name="task_id" value="1" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-document-2" author="svallet">
+        <insert tableName="document">
+            <column name="uid" value="953ca389-ab83-49bb-bacd-f9701b1f63f8" />
+            <column name="original_file_name" value="document2-test.pdf" />
+            <column name="downloaded" value="false" />
+            <column name="task_id" value="1" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-document-3" author="svallet">
+        <insert tableName="document">
+            <column name="uid" value="7a5775a8-e901-47e5-9604-6a2a0e79b285" />
+            <column name="original_file_name" value="document3-test.pdf" />
+            <column name="downloaded" value="false" />
+            <column name="task_id" value="2" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-document-4" author="svallet">
+        <insert tableName="document">
+            <column name="uid" value="2d7b2aa4-f107-485f-a947-94f1b2e5b05c" />
+            <column name="original_file_name" value="document4-test.pdf" />
+            <column name="downloaded" value="false" />
+            <column name="task_id" value="2" />
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

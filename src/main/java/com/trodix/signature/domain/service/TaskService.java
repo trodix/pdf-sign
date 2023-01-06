@@ -1,4 +1,4 @@
-package com.trodix.signature.presentation.service;
+package com.trodix.signature.domain.service;
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -22,10 +22,6 @@ import com.trodix.signature.domain.model.SignTaskStatus;
 import com.trodix.signature.domain.model.SignatureHistoryEntry;
 import com.trodix.signature.domain.model.Task;
 import com.trodix.signature.domain.model.User;
-import com.trodix.signature.domain.service.DocumentService;
-import com.trodix.signature.domain.service.EmailService;
-import com.trodix.signature.domain.service.SignatureService;
-import com.trodix.signature.domain.service.UserService;
 import com.trodix.signature.mapper.SignatureHistoryEntryMapper;
 import com.trodix.signature.mapper.TaskMapper;
 import com.trodix.signature.persistance.repository.DocumentRepository;
@@ -101,7 +97,7 @@ public class TaskService {
             final String to = recipient.getEmail();
             final String subject = "[Sign PDF] New Sign request";
             final Map<String, Object> tpl = new HashMap<>();
-            tpl.put("senderEmail", result.getInitiator().getEmail());
+            tpl.put("initiatorEmail", result.getInitiator().getEmail());
             tpl.put("documentList", result.getDocumentList());
 
             final String taskUrl = frontendUrl + "/tasks/" + result.getTaskId();

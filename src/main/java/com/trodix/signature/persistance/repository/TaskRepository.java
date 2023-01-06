@@ -28,6 +28,10 @@ public class TaskRepository {
 
     private final UserRepository userRepository;
 
+    private final DocumentRepository documentRepository;
+
+    private final SignatureHistoryRepository historyRepository;
+
 
     public static final String TABLE_NAME = "task";
 
@@ -52,29 +56,9 @@ public class TaskRepository {
                         t.task_status as t_task_status,
                         t.created_at as t_created_at,
                         initiator.id as initiator_id,
-                        initiator.email as initiator_email,
-                        d.id as d_id,
-                        d.task_id as d_task_id,
-                        d.uid as d_uid,
-                        d.downloaded as d_downloaded,
-                        d.original_file_name as d_original_file_name,
-                        th.id as th_id,
-                        th.task_id as th_task_id,
-                        th.signed_by as th_signed_by,
-                        th.signed_at as th_signed_at,
-                        tr.user_id as tr_user_id,
-                        tr.task_id as tr_task_id,
-                        recipient.id as recipient_id,
-                        recipient.email as recipient_email,
-                        signee.id as signee_id,
-                        signee.email as signee_email
+                        initiator.email as initiator_email
                     FROM task t
-                    LEFT JOIN user_ initiator ON initiator.id = t.user_id
-                    LEFT JOIN document d ON d.task_id = t.id
-                    LEFT JOIN task_history th on th.task_id = t.id
-                    LEFT JOIN task_recipient tr on tr.task_id  = t.id
-                    LEFT JOIN user_ recipient on recipient.id = tr.user_id
-                    LEFT JOIN user_ signee on signee.id = th.signed_by
+                    INNER JOIN user_ initiator ON initiator.id = t.user_id
                     """;
 
     public void persist(final TaskEntity entity) {
@@ -86,6 +70,8 @@ public class TaskRepository {
                 userRepository.persist(entity.getInitiator());
                 final UserEntity createdInitiator = userRepository.findByEmail(entity.getInitiator().getEmail()).orElseThrow();
                 entity.setInitiator(createdInitiator);
+            } else {
+                entity.setInitiator(initiator);
             }
         }
 
@@ -111,7 +97,15 @@ public class TaskRepository {
         persistDocumentList(entity);
 
         // persist relation signatureHistory
-        persistSignatureHistoryEntryList(entity);
+        if (!CollectionUtils.isEmpty(entity.getSignatureHistory())) {
+            for (final SignatureHistoryEntryEntity historyEntry : entity.getSignatureHistory()) {
+                if (historyEntry.getSignedBy().getId() == null) {
+                    final UserEntity signedBy = userRepository.findByEmail(historyEntry.getSignedBy().getEmail()).orElseThrow();
+                    historyEntry.setSignedBy(signedBy);
+                }
+            }
+            persistSignatureHistoryEntryList(entity);
+        }
 
     }
 
@@ -151,7 +145,15 @@ public class TaskRepository {
                     t.uid = :task_id
                 """;
 
-        return DaoUtils.findOne(jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor()));
+        TaskEntity task = DaoUtils.findOne(jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor())).orElse(null);
+        if (task == null) {
+            return Optional.ofNullable(null);
+        }
+
+        // add relations
+        task = fetchToManyRelationsForTask(task);
+
+        return Optional.of(task);
     }
 
     public List<TaskEntity> findAll() {
@@ -316,22 +318,28 @@ public class TaskRepository {
 
         deleteOldSignatureHistoryEntryRelations(taskEntity);
 
-        final List<MapSqlParameterSource> params = new ArrayList<>();
+        final List<MapSqlParameterSource> paramsInsert = new ArrayList<>();
+        final List<MapSqlParameterSource> paramsUpdate = new ArrayList<>();
 
         for (final SignatureHistoryEntryEntity historyEntryEntity : taskEntity.getSignatureHistory()) {
-            final MapSqlParameterSource source = new MapSqlParameterSource();
-            source.addValue("id", historyEntryEntity.getId());
-            source.addValue("task_id", taskEntity.getId());
-            source.addValue("signedBy", historyEntryEntity.getSignedBy());
-            source.addValue("signedAt", historyEntryEntity.getSignedAt());
+            if (historyEntryEntity.getId() == null) {
+                final MapSqlParameterSource source = new MapSqlParameterSource();
+                source.addValue("task_id", taskEntity.getId());
+                source.addValue("signedBy", historyEntryEntity.getSignedBy().getId());
+                source.addValue("signedAt", historyEntryEntity.getSignedAt());
 
-            params.add(source);
+                paramsInsert.add(source);
+            } else {
+                final MapSqlParameterSource source = new MapSqlParameterSource();
+                paramsUpdate.add(source);
+            }
         }
 
-        final String query =
-                "INSERT INTO task_history (id, task_id, signedBy, signedAt) values (:id, :task_id, :signedBy, :signedAt)";
+        final String insertQuery = "INSERT INTO task_history (task_id, signed_by, signed_at) values (:task_id, :signedBy, :signedAt)";
+        jdbcTemplate.batchUpdate(insertQuery, paramsInsert.toArray(MapSqlParameterSource[]::new));
 
-        jdbcTemplate.batchUpdate(query, params.toArray(MapSqlParameterSource[]::new));
+        final String updateQuery = "UPDATE task_history h SET (:id, :task_id, :signedBy, :signedAt) WHERE h.task_id = :task_id";
+        jdbcTemplate.batchUpdate(updateQuery, paramsUpdate.toArray(MapSqlParameterSource[]::new));
     }
 
     /**
@@ -341,14 +349,18 @@ public class TaskRepository {
      */
     protected void deleteOldSignatureHistoryEntryRelations(final TaskEntity taskEntity) {
 
-        if (CollectionUtils.isEmpty(taskEntity.getSignatureHistory())) {
+        if (CollectionUtils.isEmpty(taskEntity.getSignatureHistory())
+                || taskEntity.getSignatureHistory().stream().filter(i -> i.getId() != null).toList().isEmpty()) {
             return;
         }
 
         final MapSqlParameterSource deleteTSHEntryRelationQueryParams = new MapSqlParameterSource();
         deleteTSHEntryRelationQueryParams.addValue("task_id", taskEntity.getId());
-        deleteTSHEntryRelationQueryParams.addValue("history_ids_keep",
-                taskEntity.getSignatureHistory().stream().map(SignatureHistoryEntryEntity::getId).toList());
+
+        final List<Long> historyIdsKeep =
+                taskEntity.getSignatureHistory().stream().filter(i -> i.getId() != null).map(SignatureHistoryEntryEntity::getId).toList();
+        deleteTSHEntryRelationQueryParams.addValue("history_ids_keep", historyIdsKeep);
+
         final String deleteTSHEntryRelationQuery = """
                 DELETE FROM task_history h
                 WHERE h.task_id = :task_id
@@ -356,6 +368,20 @@ public class TaskRepository {
                 h.id NOT IN (:history_ids_keep)
                 """;
         jdbcTemplate.update(deleteTSHEntryRelationQuery, deleteTSHEntryRelationQueryParams);
+    }
+
+    protected TaskEntity fetchToManyRelationsForTask(TaskEntity task) {
+
+        final List<DocumentEntity> documentList = documentRepository.findByTaskId(task.getTaskId());
+        task.setDocumentList(documentList);
+
+        final List<UserEntity> recipientList = userRepository.findAllRecipientByTaskId(task.getTaskId());
+        task.setTaskRecipientList(recipientList);
+
+        final List<SignatureHistoryEntryEntity> historyEntryList = historyRepository.findByTaskId(task.getTaskId());
+        task.setSignatureHistory(historyEntryList);
+
+        return task;
     }
 
 }

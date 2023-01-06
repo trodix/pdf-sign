@@ -53,7 +53,7 @@
         </logger>
         -->
 
-        <logger name="org.springframework.jdbc.core" level="trace" />
+        <logger name="org.springframework.jdbc.core" level="info" />
 
     </springProfile>
 

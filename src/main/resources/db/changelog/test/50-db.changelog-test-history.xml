@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet context="dev" id="insert-history-1" author="svallet">
+        <insert tableName="task_history">
+            <column name="task_id" value="1" />
+            <column name="signed_by" value="2" />
+            <column name="signed_at" value="2022-12-23 10:16:04" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-history-2" author="svallet">
+        <insert tableName="task_history">
+            <column name="task_id" value="1" />
+            <column name="signed_by" value="3" />
+            <column name="signed_at" value="2022-12-23 14:18:05" />
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>

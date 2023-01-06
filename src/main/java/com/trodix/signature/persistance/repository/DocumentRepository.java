@@ -2,6 +2,7 @@ package com.trodix.signature.persistance.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,11 +69,16 @@ public class DocumentRepository {
     public List<DocumentEntity> findByTaskId(final UUID taskId) {
 
         final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("taskId", taskId);
+        params.addValue("taskId", taskId, Types.VARCHAR);
 
-        final String query = "SELECT * FROM document d WHERE (SELECT t.id FROM task t WHERE t.uid = :taskId)";
+        final String query = """
+                SELECT d.* FROM document d
+                    INNER JOIN task t on t.id = d.task_id
+                    WHERE
+                        t.uid = :taskId
+                """;
 
-        return jdbcTemplate.query(query, new MapSqlParameterSource(), new DocumentEntityRowMapper());
+        return jdbcTemplate.query(query, params, new DocumentEntityRowMapper());
     }
 
     public List<DocumentEntity> findAll() {

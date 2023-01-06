@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-2.0.xsd">
+
+    <changeSet context="dev" id="insert-user-test-1" author="svallet">
+        <insert tableName="user_">
+            <column name="email" value="test1@trodix.com" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-user-test-2" author="svallet">
+        <insert tableName="user_">
+            <column name="email" value="test2@trodix.com" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-user-test-3" author="svallet">
+        <insert tableName="user_">
+            <column name="email" value="test3@trodix.com" />
+        </insert>
+    </changeSet>
+
+    <changeSet context="dev" id="insert-user-test-4" author="svallet">
+        <insert tableName="user_">
+            <column name="email" value="test4@trodix.com" />
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
