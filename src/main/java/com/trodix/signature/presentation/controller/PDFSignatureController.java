@@ -128,26 +128,26 @@ public class PDFSignatureController {
     // provided data");
     // }
 
-    @PostMapping("/{taskId}")
-    public TaskResponse signPDFTask(@PathVariable(value = "taskId") final UUID taskId,
+    @PostMapping("/{documentId}")
+    public TaskResponse signPDFTask(@PathVariable(value = "documentId") final UUID documentId,
             @Valid @ModelAttribute final SignRequestTaskRequest signRequest)
             throws IOException {
 
-        final Task signTaskModel = this.taskService.getTaskModelByTaskId(taskId);
+        final Task signTaskModel = this.taskService.getTaskModelByDocumentId(documentId);
 
         if (signTaskModel == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign task not found with id: " + taskId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found with document id: " + documentId);
         }
 
-        if (this.taskService.isTaskSignedByRecipient(taskId, jwt.getClaim(Claims.EMAIL.value))) {
+        if (this.taskService.isTaskSignedByRecipient(signTaskModel.getTaskId(), jwt.getClaim(Claims.EMAIL.value))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    jwt.getClaim(Claims.EMAIL.value) + " has already signed the task with id: " + taskId);
+                    jwt.getClaim(Claims.EMAIL.value) + " has already signed the task " + signTaskModel.getTaskId() + " corresponding to the document with id: " + documentId);
         }
 
         if (!signTaskModel.getTaskRecipientList().stream().map(User::getEmail).collect(Collectors.toList())
                 .contains(jwt.getClaim(Claims.EMAIL.value))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
-                    jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for task with id: " + taskId);
+                    jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for task with id: " + signTaskModel.getTaskId());
         }
 
         final SignRequestOptions signRequestTaskOptions = new SignRequestOptions();
@@ -162,7 +162,7 @@ public class PDFSignatureController {
             final PrivateKey pk = SignatureService.getPrivateKey(keystore, signRequest.getP12Password(), signRequestTaskOptions.getKeyAlias());
             final Certificate[] chain = SignatureService.getChainCertificates(keystore, signRequestTaskOptions.getKeyAlias());
 
-            signRequestTaskOptions.setTaskId(taskId);
+            signRequestTaskOptions.setTaskId(signTaskModel.getTaskId());
             signRequestTaskOptions.setProvider(providerName);
             signRequestTaskOptions.setChain(chain);
             signRequestTaskOptions.setPk(pk);
@@ -174,9 +174,9 @@ public class PDFSignatureController {
             signRequestTaskOptions.setSenderEmail(jwt.getClaim(Claims.EMAIL.value));
 
             // Sign all documents associated with the task
-            this.taskService.signPdfDocumentsForTask(taskId, signRequestTaskOptions);
+            this.taskService.signPdfDocumentsForTask(signTaskModel.getTaskId(), signRequestTaskOptions);
 
-            final Task task = taskService.getTaskModelByTaskId(taskId);
+            final Task task = taskService.getTaskModelByTaskId(signTaskModel.getTaskId());
 
             return taskMapper.taskToTaskResponse(task);
         } catch (GeneralSecurityException | IOException e) {
@@ -194,22 +194,22 @@ public class PDFSignatureController {
 
         final Task task = this.taskService.getTaskModelByDocumentId(signedDocument.getDocumentId());
 
-        if (SignTaskStatus.SIGNED.equals(task.getSignTaskStatus())) {
+        if (!(SignTaskStatus.SIGNED.equals(task.getSignTaskStatus()) || SignTaskStatus.DOWNLOADED.equals(task.getSignTaskStatus()))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Signature workflow is not completed. All recipient must sign the file.");
         }
 
-        if (!new EqualsBuilder().append(signedDocument.getTask().getInitiator().getEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+        if (!new EqualsBuilder().append(task.getInitiator().getEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     jwt.getClaim(Claims.EMAIL.value) + " don't match the task sender for documentId " + documentId);
         }
 
         try {
-            final File document = this.documentService.getSignedDocument(signedDocument);
-            final Path path = Paths.get(document.getAbsolutePath());
+            final File file = this.documentService.getSignedDocument(signedDocument);
+            final Path path = Paths.get(file.getAbsolutePath());
             final ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
 
             final HttpHeaders headers = new HttpHeaders();
-            headers.add("Content-Disposition", "attachment; filename=" + document);
+            headers.add("Content-Disposition", "attachment; filename=" + file);
 
             return ResponseEntity
                     .ok()
@@ -222,31 +222,24 @@ public class PDFSignatureController {
 
     }
 
-    @GetMapping("/list")
-    public List<DocumentResponse> getSignedDocuments() {
-
-        final List<Document> result = this.taskService.getSignedDocuments().stream()
-                .filter(i -> i.getTask().getInitiator().getEmail().equals(jwt.getClaim(Claims.EMAIL.value))).toList();
-        return documentMapper.documentModelListToDocumentResponseList(result);
-    }
-
-    @GetMapping(value = "/preview/{documentId}", produces = MediaType.APPLICATION_PDF_VALUE)
+    @GetMapping(value = "/signed-document/{documentId}/preview", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<Resource> previewSignedDocument(@PathVariable(value = "documentId") final UUID documentId)
             throws IOException {
 
-        final Document signedDocument = this.taskService.getDocumentModel(documentId);
+        final Document document = this.taskService.getDocumentModel(documentId);
+        final Task task = this.taskService.getTaskModelByDocumentId(documentId);
 
-        if (!new EqualsBuilder().append(signedDocument.getTask().getInitiator().getEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
+        if (!new EqualsBuilder().append(task.getInitiator().getEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     jwt.getClaim(Claims.EMAIL.value) + " don't match the task sender for documentId " + documentId);
         }
 
-        final File document = this.documentService.getSignedDocument(signedDocument);
-        final Path path = Paths.get(document.getAbsolutePath());
+        final File file = this.documentService.getSignedDocument(document);
+        final Path path = Paths.get(file.getAbsolutePath());
         final ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Disposition", "inline; filename=" + document);
+        headers.add("Content-Disposition", "inline; filename=" + file);
 
         return ResponseEntity
                 .ok()
@@ -281,14 +274,30 @@ public class PDFSignatureController {
     }
 
     @GetMapping("/task/list")
-    public List<TaskResponse> getTaskDocuments() {
+    public List<TaskResponse> getTaskList() {
 
         final List<Task> result = this.taskService.getTaskDocumentsForUser(jwt.getClaim(Claims.EMAIL.value));
         return taskMapper.taskListToTaskResponseList(result);
     }
 
-    @GetMapping(value = "/task/preview/{documentId}", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<Resource> previewSignTaskDocument(@PathVariable(value = "documentId") final UUID documentId) throws IOException {
+    @GetMapping("/task/document/{documentId}")
+    public TaskResponse getTaskByDocumentId(@PathVariable(value = "documentId") final UUID documentId) {
+        final Task task = this.taskService.getTaskModelByDocumentId(documentId);
+
+        if (task == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Sign task not found for documentId " + documentId);
+        }
+
+        if (!hasAccesToTask(task, jwt)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    jwt.getClaim(Claims.EMAIL.value) + " don't match the task recipient for documentId " + documentId);
+        }
+
+        return taskMapper.taskToTaskResponse(task);
+    }
+
+    @GetMapping(value = "/document/{documentId}/preview", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<Resource> previewDocument(@PathVariable(value = "documentId") final UUID documentId) throws IOException {
 
         final Task task = this.taskService.getTaskModelByDocumentId(documentId);
 
@@ -303,19 +312,19 @@ public class PDFSignatureController {
 
         final Document documentModel = this.taskService.getDocumentModel(documentId);
 
-        final File document;
+        final File file;
 
         if (task.getSignTaskStatus().equals(SignTaskStatus.SIGNED)) {
-            document = this.documentService.getSignedDocument(documentModel);
+            file = this.documentService.getSignedDocument(documentModel);
         } else {
-            document = this.documentService.getDocument(documentModel);
+            file = this.documentService.getDocument(documentModel);
         }
 
-        final Path path = Paths.get(document.getAbsolutePath());
+        final Path path = Paths.get(file.getAbsolutePath());
         final ByteArrayResource resource = new ByteArrayResource(Files.readAllBytes(path));
 
         final HttpHeaders headers = new HttpHeaders();
-        headers.add("Content-Disposition", "inline; filename=" + document);
+        headers.add("Content-Disposition", "inline; filename=" + file);
         return ResponseEntity
                 .ok()
                 .headers(headers)
@@ -324,7 +333,7 @@ public class PDFSignatureController {
     }
 
     private boolean hasAccesToTask(final Task task, final Jwt jwt) {
-        if (task.getTaskRecipientList().contains(jwt.getClaim(Claims.EMAIL.value))) {
+        if (task.getTaskRecipientList().stream().map(User::getEmail).toList().contains(jwt.getClaim(Claims.EMAIL.value))) {
             return true;
         } else if (new EqualsBuilder().append(task.getInitiator().getEmail(), jwt.getClaim(Claims.EMAIL.value)).isEquals()) {
             return true;

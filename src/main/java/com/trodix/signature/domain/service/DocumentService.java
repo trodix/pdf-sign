@@ -47,9 +47,18 @@ public class DocumentService {
         return Paths.get(fileStoragePath, signedDocumentName);
     }
 
-    public void deleteSignedDocument(final Document document) {
+    public void deleteOriginalDocument(final Document document) {
         try {
             final File signedDocument = getDocument(document);
+            Files.delete(signedDocument.toPath());
+        } catch (final IOException e) {
+            log.error("Error while deleting original document {}", document.getDocumentId(), e);
+        }
+    }
+
+    public void deleteSignedDocument(final Document document) {
+        try {
+            final File signedDocument = getSignedDocument(document);
             Files.delete(signedDocument.toPath());
         } catch (final IOException e) {
             log.error("Error while deleting signed document {}", document.getDocumentId(), e);

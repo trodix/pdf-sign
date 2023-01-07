@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.mail.MessagingException;
+import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -133,7 +134,7 @@ public class TaskService {
 
         taskEntity.addHistoryElement(signatureHistoryMapper.signatureHistoryEntryToSignatureHistoryEntryEntity(signatureHistoryEntry));
 
-        if (isTaskSignedByAllRecipients(taskId)) {
+        if (isTaskSignedByAllRecipients(taskEntity)) {
             taskEntity.setSignTaskStatus(SignTaskStatus.SIGNED);
         }
 
@@ -144,11 +145,7 @@ public class TaskService {
         final String to = task.getInitiator().getEmail();
         final String subject = "[Sign PDF] Your files has been signed";
         final Map<String, Object> tpl = new HashMap<>();
-        tpl.put("senderEmail", task.getInitiator().getEmail());
-        tpl.put("recipientEmail", signedBy);
-        tpl.put("documentList", task.getDocumentList());
-        tpl.put("createdAt", task.getCreatedAt());
-        tpl.put("dueDate", task.getDueDate());
+        tpl.put("task", task);
 
         final String downloadUrl = frontendUrl + "/tasks/" + taskId;
         tpl.put("downloadUrl", downloadUrl);
@@ -172,15 +169,14 @@ public class TaskService {
         taskEntity.setSignTaskStatus(SignTaskStatus.DOWNLOADED);
         taskRepository.persist(taskEntity);
 
-        // FIXME downloadedSignedDocumentsCleaner();
+        downloadedSignedDocumentsCleaner();
 
         for (final UserEntity recipient : taskEntity.getTaskRecipientList()) {
 
             final String to = recipient.getEmail();
             final String subject = "[Sign PDF] Your files has been downloaded";
             final Map<String, Object> tpl = new HashMap<>();
-            tpl.put("senderEmail", taskEntity.getInitiator().getEmail());
-            tpl.put("documentList", taskEntity.getDocumentList());
+            tpl.put("task", taskEntity);
 
             try {
                 this.emailService.sendDownloadedDocumentEmailNotification(to, subject, tpl);
@@ -206,16 +202,12 @@ public class TaskService {
         registerSignedTask(taskId, userService.getOrCreateUser(signRequestOptions.getSenderEmail()));
     }
 
-    public boolean isTaskSignedByAllRecipients(final UUID taskId) {
-        final TaskEntity taskEntity = taskRepository.findByTaskId(taskId).orElseThrow();
+    public boolean isTaskSignedByAllRecipients(final TaskEntity task) {
 
-        for (final UserEntity recipient : taskEntity.getTaskRecipientList()) {
-            final List<SignatureHistoryEntryEntity> history = taskEntity.getSignatureHistory();
-            if (!history.stream().map(h -> h.getSignedBy().getEmail()).collect(Collectors.toList()).contains(recipient.getEmail())) {
-                return false;
-            }
-        }
-        return true;
+        final List<String> a = task.getSignatureHistory().stream().map(h -> h.getSignedBy().getEmail()).toList();
+        final List<String> b = task.getTaskRecipientList().stream().map(UserEntity::getEmail).toList();
+
+        return CollectionUtils.containsAll(a, b);
     }
 
     public boolean isTaskSignedByRecipient(final UUID taskId, final String recipientEmail) {
@@ -231,6 +223,7 @@ public class TaskService {
         try {
             final Document document = getDocumentModel(documentId);
             taskRepository.deleteByDocumentId(documentId);
+            documentService.deleteOriginalDocument(document);
             documentService.deleteSignedDocument(document);
         } catch (final RuntimeException e) {
             log.error("Error while deleting task {}", documentId, e);

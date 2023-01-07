@@ -3,11 +3,14 @@ package com.trodix.signature.persistance.repository;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -17,6 +20,7 @@ import com.trodix.signature.domain.entity.SignatureHistoryEntryEntity;
 import com.trodix.signature.domain.entity.TaskEntity;
 import com.trodix.signature.domain.entity.UserEntity;
 import com.trodix.signature.persistance.extractor.TaskEntityListResultSetExtractor;
+import com.trodix.signature.persistance.extractor.TaskRecipientRelationResultSetExtractor;
 import lombok.AllArgsConstructor;
 
 @Repository
@@ -84,8 +88,19 @@ public class TaskRepository {
         params.addValue(COLUMN_TASK_STATUS, entity.getSignTaskStatus());
         params.addValue(COLUMN_CREATED_AT, ObjectUtils.defaultIfNull(entity.getCreatedAt(), LocalDateTime.now()));
 
-        final String query = "INSERT INTO task (uid, user_id, due_date, task_status, created_at) VALUES (:uid, :user_id, :due_date, :task_status, :created_at)";
-        jdbcTemplate.update(query, params);
+        if (entity.getId() == null) {
+            final String query =
+                    "INSERT INTO task (uid, user_id, due_date, task_status, created_at) VALUES (:uid, :user_id, :due_date, :task_status, :created_at)";
+            jdbcTemplate.update(query, params);
+        } else {
+            params.addValue(COLUMN_ID, entity.getId());
+            final String query = """
+                    UPDATE task SET uid = :uid, user_id = :user_id, due_date = :due_date, task_status = :task_status, created_at = :created_at
+                        WHERE id = :id
+                    """;
+            jdbcTemplate.update(query, params);
+        }
+
 
         final TaskEntity persistedEntity = findByTaskId(entity.getTaskId()).orElseThrow();
         entity.setId(persistedEntity.getId());
@@ -115,11 +130,21 @@ public class TaskRepository {
         params.addValue("documentId", documentId.toString());
 
         final String query = TASK_QUERY + """
+                INNER JOIN document d ON d.task_id = t.id
                 WHERE
                     d.uid = :documentId
                 """;
 
-        return DaoUtils.findOne((jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor())));
+        TaskEntity task = DaoUtils.findOne((jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor()))).orElse(null);
+
+        if (task == null) {
+            return Optional.ofNullable(null);
+        }
+
+        // add relations
+        task = fetchToManyRelationsForTask(task);
+
+        return Optional.of(task);
     }
 
     public Optional<TaskEntity> findById(final Long id) {
@@ -169,37 +194,52 @@ public class TaskRepository {
         params.addValue("email", email);
 
         final String query = TASK_QUERY + """
+                INNER JOIN task_recipient tr ON tr.task_id = t.id
+                INNER JOIN user_ r  ON r.id = tr.user_id
                 WHERE
-                    u.email = :email
+                    initiator.email = :email
                 AND
-                    t.task_status IN ('IN_PROGRESS', 'SIGNED', 'REJECTED')
+                    t.task_status IN ('P', 'S', 'R')
+                OR
+                    r.email = :email
+                AND
+                    t.task_status IN ('P')
                 """;
 
-        return jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor());
+        final List<TaskEntity> entities = jdbcTemplate.query(query, params, new TaskEntityListResultSetExtractor());
+
+        if (entities != null) {
+            return entities.stream().map(this::fetchToManyRelationsForTask).toList();
+        }
+
+        return Collections.emptyList();
     }
 
     public void deleteById(final Long id) {
 
         final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("id", id);
+        params.addValue("task_id", id);
 
-        final String query = "DELETE FROM task t WHERE t.id = :id";
+        // delete association task_history
+        final String queryDeleteAssociationTask_History = "DELETE FROM task_history WHERE task_id = :task_id";
+        jdbcTemplate.update(queryDeleteAssociationTask_History, params);
 
-        jdbcTemplate.update(query, params);
+        // delete association document
+        final String queryDeleteAssociationDocument = "DELETE FROM document WHERE task_id = :task_id";
+        jdbcTemplate.update(queryDeleteAssociationDocument, params);
+
+        // delete association task_recipient
+        final String queryDeleteAssociationTask_Recipient = "DELETE FROM task_recipient WHERE task_id = :task_id";
+        jdbcTemplate.update(queryDeleteAssociationTask_Recipient, params);
+
+        // delete task
+        final String queryDeleteTask = "DELETE FROM task WHERE id = :task_id";
+        jdbcTemplate.update(queryDeleteTask, params);
     }
 
     public void deleteByDocumentId(final UUID documentId) {
-
-        final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("uid", documentId);
-
-        final String query = """
-                DELETE FROM task t
-                INNER JOIN document d ON d.task_id = t.id
-                WHERE d.uid = :uid
-                """;
-
-        jdbcTemplate.update(query, params);
+        final TaskEntity taskEntity = findByDocumentId(documentId).orElseThrow();
+        deleteById(taskEntity.getId());
     }
 
     /**
@@ -239,7 +279,12 @@ public class TaskRepository {
             source.addValue(COLUMN_FK_TASK_ID, taskEntity.getId());
             source.addValue(COLUMN_FK_USER_ID, userEntity.getId());
 
-            params.add(source);
+            final String queryRelationTable = "SELECT * FROM task_recipient WHERE (task_id = :task_id AND user_id = :user_id)";
+            final Pair<Long, Long> mapping = jdbcTemplate.query(queryRelationTable, source, new TaskRecipientRelationResultSetExtractor());
+
+            if (mapping == null) {
+                params.add(source);
+            }            
         }
 
         final String query = "INSERT INTO task_recipient (task_id, user_id) values (:task_id, :user_id)";
@@ -270,7 +315,8 @@ public class TaskRepository {
 
         deleteOldTaskDocumentRelations(taskEntity);
 
-        final List<MapSqlParameterSource> params = new ArrayList<>();
+        final List<MapSqlParameterSource> paramsForInsert = new ArrayList<>();
+        final List<MapSqlParameterSource> paramsForUpdate = new ArrayList<>();
 
         for (final DocumentEntity documentEntity : taskEntity.getDocumentList()) {
             final MapSqlParameterSource source = new MapSqlParameterSource();
@@ -279,15 +325,27 @@ public class TaskRepository {
             source.addValue("downloaded", documentEntity.isDownloaded());
             source.addValue("original_file_name", documentEntity.getOriginalFileName());
 
-            params.add(source);
+            if (documentEntity.getId() == null) {
+                paramsForInsert.add(source);
+            } else {
+                source.addValue("id", documentEntity.getId());
+                paramsForUpdate.add(source);
+            }            
         }
 
-        final String query = """
+        final String queryInsert = """
                 INSERT INTO document (task_id, uid, downloaded, original_file_name)
                 values (:task_id, :uid, :downloaded, :original_file_name)
                 """;
 
-        jdbcTemplate.batchUpdate(query, params.toArray(MapSqlParameterSource[]::new));
+        jdbcTemplate.batchUpdate(queryInsert, paramsForInsert.toArray(MapSqlParameterSource[]::new));
+
+        final String queryUpdate = """
+                UPDATE document SET task_id = :task_id, uid = :uid, downloaded = :downloaded, original_file_name = :original_file_name 
+                    WHERE id = :id
+                """;
+
+        jdbcTemplate.batchUpdate(queryUpdate, paramsForUpdate.toArray(MapSqlParameterSource[]::new));
     }
 
     /**
@@ -322,23 +380,23 @@ public class TaskRepository {
         final List<MapSqlParameterSource> paramsUpdate = new ArrayList<>();
 
         for (final SignatureHistoryEntryEntity historyEntryEntity : taskEntity.getSignatureHistory()) {
-            if (historyEntryEntity.getId() == null) {
-                final MapSqlParameterSource source = new MapSqlParameterSource();
-                source.addValue("task_id", taskEntity.getId());
-                source.addValue("signedBy", historyEntryEntity.getSignedBy().getId());
-                source.addValue("signedAt", historyEntryEntity.getSignedAt());
 
+            final MapSqlParameterSource source = new MapSqlParameterSource();
+            source.addValue("task_id", taskEntity.getId());
+            source.addValue("signed_by", historyEntryEntity.getSignedBy().getId());
+            source.addValue("signed_at", historyEntryEntity.getSignedAt());
+
+            if (historyEntryEntity.getId() == null) {
                 paramsInsert.add(source);
             } else {
-                final MapSqlParameterSource source = new MapSqlParameterSource();
                 paramsUpdate.add(source);
             }
         }
 
-        final String insertQuery = "INSERT INTO task_history (task_id, signed_by, signed_at) values (:task_id, :signedBy, :signedAt)";
+        final String insertQuery = "INSERT INTO task_history (task_id, signed_by, signed_at) values (:task_id, :signed_by, :signed_at)";
         jdbcTemplate.batchUpdate(insertQuery, paramsInsert.toArray(MapSqlParameterSource[]::new));
 
-        final String updateQuery = "UPDATE task_history h SET (:id, :task_id, :signedBy, :signedAt) WHERE h.task_id = :task_id";
+        final String updateQuery = "UPDATE task_history SET task_id = :task_id, signed_by = :signed_by, signed_at = :signed_at WHERE task_id = :task_id";
         jdbcTemplate.batchUpdate(updateQuery, paramsUpdate.toArray(MapSqlParameterSource[]::new));
     }
 
@@ -370,7 +428,7 @@ public class TaskRepository {
         jdbcTemplate.update(deleteTSHEntryRelationQuery, deleteTSHEntryRelationQueryParams);
     }
 
-    protected TaskEntity fetchToManyRelationsForTask(TaskEntity task) {
+    protected TaskEntity fetchToManyRelationsForTask(final TaskEntity task) {
 
         final List<DocumentEntity> documentList = documentRepository.findByTaskId(task.getTaskId());
         task.setDocumentList(documentList);

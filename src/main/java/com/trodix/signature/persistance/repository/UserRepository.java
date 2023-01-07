@@ -74,7 +74,7 @@ public class UserRepository {
         params.addValue("taskId", taskId, Types.VARCHAR);
 
         final String query = """
-            SELECT * FROM task_recipient r 
+            SELECT u.* FROM task_recipient r 
             INNER JOIN task t ON t.id = r.task_id 
             INNER JOIN user_ u ON u.id = r.user_id 
             WHERE 

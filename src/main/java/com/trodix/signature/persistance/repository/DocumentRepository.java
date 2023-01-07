@@ -49,7 +49,7 @@ public class DocumentRepository {
     public Optional<DocumentEntity> findByDocumentId(final UUID documentId) {
 
         final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("uid", documentId);
+        params.addValue("uid", documentId, Types.VARCHAR);
 
         final String query = "SELECT * FROM document d WHERE d.uid = :uid";
 
@@ -93,7 +93,7 @@ public class DocumentRepository {
         final MapSqlParameterSource params = new MapSqlParameterSource();
         params.addValue("downloaded", downloaded);
 
-        final String query = "SELECT * FROM document d WHERE d.downloaded IS :downloaded";
+        final String query = "SELECT * FROM document d WHERE d.downloaded = :downloaded";
 
         return jdbcTemplate.query(query, params, new DocumentEntityRowMapper());
     }
@@ -111,7 +111,7 @@ public class DocumentRepository {
     public void deleteByDocumentId(final UUID documentId) {
 
         final MapSqlParameterSource params = new MapSqlParameterSource();
-        params.addValue("uid", documentId);
+        params.addValue("uid", documentId, Types.VARCHAR);
 
         final String query = "DELETE FROM document d WHERE d.uid = :uid";
 

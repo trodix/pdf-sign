@@ -5,6 +5,12 @@
     </head>
     <body>
       <p>Hi,</p>
-      <p>The document ${originalFileName} you digitally signed as been downloaded by ${senderEmail}</p>
+      <p>The document(s) you digitally signed have been downloaded by ${task.initiator.email}</p>
+      <p>Document list :</p>
+      <ul>
+        <#list task.documentList as document>
+          <li>${document.originalFileName}</li>
+        </#list>
+      </ul>
     </body>
 </html>
