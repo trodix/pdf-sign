@@ -6,7 +6,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import javax.validation.constraints.NotNull;
-import com.trodix.signature.domain.model.SignTaskStatus;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;

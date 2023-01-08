@@ -1,4 +1,4 @@
-package com.trodix.signature.domain.model;
+package com.trodix.signature.domain.entity;
 
 /**
  * Workflow of a sign task

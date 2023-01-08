@@ -24,10 +24,10 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.PortBinding;
 import com.github.dockerjava.api.model.Ports;
 import com.trodix.signature.domain.entity.DocumentEntity;
+import com.trodix.signature.domain.entity.SignTaskStatus;
 import com.trodix.signature.domain.entity.SignatureHistoryEntryEntity;
 import com.trodix.signature.domain.entity.TaskEntity;
 import com.trodix.signature.domain.entity.UserEntity;
-import com.trodix.signature.domain.model.SignTaskStatus;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @Testcontainers
