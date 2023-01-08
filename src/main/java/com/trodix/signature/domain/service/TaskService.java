@@ -14,17 +14,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import com.trodix.signature.domain.entity.DocumentEntity;
+import com.trodix.signature.domain.entity.SignTaskStatus;
 import com.trodix.signature.domain.entity.SignatureHistoryEntryEntity;
 import com.trodix.signature.domain.entity.TaskEntity;
 import com.trodix.signature.domain.entity.UserEntity;
 import com.trodix.signature.domain.model.Document;
 import com.trodix.signature.domain.model.SignRequestOptions;
-import com.trodix.signature.domain.model.SignTaskStatus;
 import com.trodix.signature.domain.model.SignatureHistoryEntry;
 import com.trodix.signature.domain.model.Task;
 import com.trodix.signature.domain.model.User;
 import com.trodix.signature.mapper.SignatureHistoryEntryMapper;
 import com.trodix.signature.mapper.TaskMapper;
+import com.trodix.signature.persistance.mybatis.TaskDAO;
 import com.trodix.signature.persistance.repository.DocumentRepository;
 import com.trodix.signature.persistance.repository.TaskRepository;
 import com.trodix.signature.presentation.dto.request.CreateTaskRequest;
@@ -54,10 +55,12 @@ public class TaskService {
 
     private final DocumentRepository documentRepository;
 
+    private final TaskDAO taskDAO;
+
 
     public TaskService(final DocumentService documentService, final EmailService emailService, final UserService userService,
             final SignatureService signatureService, final TaskMapper taskMapper, final SignatureHistoryEntryMapper signatureHistoryMapper,
-            final TaskRepository taskRepository, final DocumentRepository documentRepository) {
+            final TaskRepository taskRepository, final DocumentRepository documentRepository, final TaskDAO taskDAO) {
 
         this.documentService = documentService;
         this.emailService = emailService;
@@ -67,6 +70,7 @@ public class TaskService {
         this.signatureHistoryMapper = signatureHistoryMapper;
         this.taskRepository = taskRepository;
         this.documentRepository = documentRepository;
+        this.taskDAO = taskDAO;
     }
 
 
@@ -90,9 +94,11 @@ public class TaskService {
         }
 
         final TaskEntity entity = this.taskMapper.taskToTaskEntity(task);
+        // FIXME taskDAO.insertTask(entity);
         taskRepository.persist(entity);
-        final TaskEntity result = taskRepository.findByTaskId(task.getTaskId()).orElseThrow();
-
+        // final TaskEntity result = taskRepository.findByTaskId(task.getTaskId()).orElseThrow();
+        final TaskEntity result = taskDAO.findByTaskId(task.getTaskId());
+        log.info(result.toString());
         for (final UserEntity recipient : result.getTaskRecipientList()) {
 
             final String to = recipient.getEmail();
@@ -122,7 +128,7 @@ public class TaskService {
     }
 
     public Task getTaskModelByDocumentId(final UUID documentId) {
-        final TaskEntity entity = taskRepository.findByDocumentId(documentId).orElseThrow();
+        final TaskEntity entity = taskDAO.findByDocumentId(documentId);
 
         return taskMapper.taskEntityToTask(entity);
     }
@@ -236,7 +242,7 @@ public class TaskService {
     }
 
     public List<Task> getTaskDocumentsForUser(final String email) {
-        final List<TaskEntity> entities = taskRepository.findByUserEmail(email);
+        final List<TaskEntity> entities = taskDAO.findByUserEmail(email);
         return taskMapper.taskEntityListToTaskList(entities);
     }
 

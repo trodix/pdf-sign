@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE configuration
+        PUBLIC "-//ibatis.apache.org//DTD Config 3.1//EN"
+        "http://mybatis.org/dtd/mybatis-3-config.dtd">
+<configuration>
+    <!-- <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+    </settings> -->
+
+    <typeAliases>
+        <typeAlias alias="UUIDTypeHandler" type="com.trodix.signature.persistance.mybatis.handler.UUIDTypeHandler" />
+        <typeAlias alias="TaskStatusTypeHandler" type="com.trodix.signature.persistance.mybatis.handler.TaskStatusTypeHandler" />
+        <typeAlias alias="LocalDateTimeTypeHandler" type="com.trodix.signature.persistance.mybatis.handler.LocalDateTimeTypeHandler" />
+    </typeAliases>
+
+    <typeHandlers>
+        <package name="com.trodix.signature.persistance.mybatis.handler" />
+    </typeHandlers>
+
+
+</configuration>

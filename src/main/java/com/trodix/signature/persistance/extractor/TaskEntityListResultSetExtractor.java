@@ -8,9 +8,9 @@ import java.util.UUID;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.lang.Nullable;
+import com.trodix.signature.domain.entity.SignTaskStatus;
 import com.trodix.signature.domain.entity.TaskEntity;
 import com.trodix.signature.domain.entity.UserEntity;
-import com.trodix.signature.domain.model.SignTaskStatus;
 
 public class TaskEntityListResultSetExtractor implements ResultSetExtractor<List<TaskEntity>> {
 

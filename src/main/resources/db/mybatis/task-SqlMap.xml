@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="pdfsign.task">
+
+
+    <!--                -->
+    <!-- Result Maps    -->
+    <!--                -->
+
+    <resultMap id="result_User" type="UserEntity">
+        <result property="id" column="u_id" jdbcType="BIGINT" javaType="java.lang.Long" />
+        <result property="email" column="u_email" jdbcType="VARCHAR" javaType="java.lang.String" />
+    </resultMap>
+
+    <resultMap id="result_DocumentList" type="DocumentEntity">
+        <result property="id" column="d_id" jdbcType="BIGINT" javaType="java.lang.Long" />
+        <result property="documentId" column="d_uid" jdbcType="VARCHAR" javaType="java.util.UUID" />
+        <result property="originalFileName" column="d_original_file_name" jdbcType="VARCHAR" javaType="java.lang.String" />
+        <result property="downloaded" column="d_downloaded" jdbcType="BOOLEAN" javaType="java.lang.Boolean" />
+    </resultMap>
+
+    <resultMap id="result_SignatureHistory" type="SignatureHistoryEntryEntity">
+        <result property="signedAt" column="h_signed_at" jdbcType="TIMESTAMP" javaType="java.time.LocalDate" />
+
+        <association property="signedBy" resultMap="result_User" />
+    </resultMap>
+
+    <resultMap id="result_Task" type="TaskEntity">
+        <result property="id" column="t_id" jdbcType="BIGINT" javaType="java.lang.Long" />
+        <result property="taskId" column="t_uid" jdbcType="VARCHAR" javaType="java.util.UUID" />
+        <result property="dueDate" column="t_due_date" jdbcType="TIMESTAMP" javaType="java.time.LocalDateTime" />
+        <result property="signTaskStatus" column="t_task_status" jdbcType="VARCHAR" javaType="SignTaskStatus" />
+        <result property="createdAt" column="t_created_at" jdbcType="TIMESTAMP" javaType="java.time.LocalDateTime" />
+
+        <association property="initiator" resultMap="result_User" />
+        <collection property="taskRecipientList" ofType="UserEntity" column="t_id" select="select_TaskRecipientList" />
+        <collection property="documentList" ofType="DocumentEntity" column="t_id" select="select_TaskDocumentList" />
+        <collection property="signatureHistory" ofType="SignatureHistoryEntryEntity" column="t_id" select="select_TaskSignatureHistoryList" />
+    </resultMap>
+
+
+    <!--                -->
+    <!-- SQL Snippets   -->
+    <!--                -->
+
+
+    <!--  ****************  -->
+    <!--  Fields snippets   -->
+
+    <sql id="fields_Task">
+        task.id             as t_id,
+        task.uid            as t_uid,
+        task.user_id        as t_user_id,
+        task.due_date       as t_due_date,
+        task.task_status    as t_task_status,
+        task.created_at     as t_created_at
+    </sql>
+
+    <sql id="fields_User">
+        user_.id     as u_id,
+        user_.email  as u_email
+    </sql>
+
+    <sql id="fields_Document">
+        document.id                 as d_id,
+        document.uid                as d_uid,
+        document.downloaded         as d_downloaded,
+        document.original_file_name as d_original_file_name
+    </sql>
+
+    <sql id="fields_History">
+        task_history.signed_by      as h_signed_by,
+        task_history.signed_at      as h_signed_at
+    </sql>
+
+    <!--  ****************  -->
+    <!--  Select snippets   -->
+
+    <sql id="select_Task_Results">
+        SELECT
+            <include refid="fields_Task" />,
+            <include refid="fields_User" />
+    </sql>
+
+    <select id="select_TaskByTaskId" parameterType="java.util.UUID" resultMap="result_Task">
+        <include refid="select_Task_Results" />
+        FROM
+            task
+        INNER JOIN
+            user_ ON user_.id = task.user_id
+        WHERE
+            task.uid = #{taskId}
+    </select>
+
+    <select id="select_TaskByDocumentId" parameterType="java.util.UUID" resultMap="result_Task">
+        <include refid="select_Task_Results" />
+        FROM
+            task
+        INNER JOIN
+            user_ ON user_.id = task.user_id
+        INNER JOIN 
+            document ON document.task_id = task.id
+        WHERE
+            document.uid = #{documentId}
+    </select>
+
+    <select id="select_TaskByUserEmail" parameterType="java.lang.String" resultMap="result_Task">
+        <include refid="select_Task_Results" />
+        FROM
+            task
+        INNER JOIN
+            user_ ON user_.id = task.user_id
+        WHERE
+            user_.email = #{email}
+        AND
+            task.task_status IN ('P', 'S', 'R')
+        OR
+            user_.email = #{email}
+        AND
+            task.task_status IN ('P')
+    </select>
+
+    <select id="select_TaskRecipientList" parameterType="java.lang.Long" resultMap="result_User">
+        SELECT 
+            <include refid="fields_User" />
+        FROM 
+            task_recipient tr
+        INNER JOIN 
+            user_ ON user_.id = tr.user_id
+        WHERE
+            tr.task_id = #{id}
+    </select>
+
+    <select id="select_TaskDocumentList" parameterType="java.lang.Long" resultMap="result_DocumentList">
+        SELECT 
+            <include refid="fields_Document" />
+        FROM 
+            document
+        WHERE
+            document.task_id = #{id}
+    </select>
+
+    <select id="select_TaskSignatureHistoryList" parameterType="java.lang.Long" resultMap="result_SignatureHistory">
+        SELECT 
+            <include refid="fields_History" />
+        FROM 
+            task_history
+        WHERE
+            task_history.task_id = #{id}
+    </select>
+
+
+    <!--  ****************  -->
+    <!--  Insert snippets   -->
+
+    <sql id="insert_Task">
+        INSERT INTO task
+        (
+            uid, user_id, due_date, task_status, created_at
+        )
+        VALUES
+        (
+            #{uid}, #{user_id}, #{due_date}, #{task_status}, #{created_at}
+        )
+    </sql>
+
+</mapper>
